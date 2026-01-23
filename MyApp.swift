@@ -4,7 +4,18 @@ import SwiftUI
 struct MyApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            FourierSketchpadView()
         }
     }
 }
+
+/*
+// Preview Provider
+struct FourierSketchpadView_Previews: PreviewProvider {
+    static var previews: some View {
+        FourierSketchpadView()
+            .previewInterfaceOrientation(.landscapeLeft)
+    }
+}
+
+*/
