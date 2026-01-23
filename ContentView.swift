@@ -1,90 +1,81 @@
 import SwiftUI
-import Charts // Optional, if you want to show coordinate stats later
 
 struct FourierSketchpadView: View {
-    // 1. State to hold the user's drawing (Raw Signal)
-    // We store 'CGPoint' because we need X (Time/Real) and Y (Amplitude/Imaginary)
     @State private var drawingPoints: [CGPoint] = []
-    
-    // State to track if the user is currently drawing
     @State private var isDrawing: Bool = false
     
-    // HOLDING THE RESULT
     @State private var computedEpicycles: [Epicycle] = []
+    @State private var computedTrace: [CGPoint] = [] // New: The "Perfect" trace path
     
     var body: some View {
         HStack(spacing: 20) {
             
-            // LEFT PANEL: The Input (Time Domain / Spatial Domain)
+            // LEFT PANEL: Input
             VStack {
-                Text("Input: Draw Anything")
+                Text("Input: Draw & Lift Finger")
                     .font(.headline)
                     .foregroundColor(.secondary)
                 
                 ZStack {
-                    // Background grid
                     RoundedRectangle(cornerRadius: 16)
                         .fill(Color(UIColor.secondarySystemBackground))
                         .shadow(radius: 5)
                     
-                    // The Drawing Layer
                     DrawShape(points: drawingPoints)
                         .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     
-                    // Gesture Recognizer
-                    Color.clear // Transparent overlay to catch touches
+                    Color.clear
                         .contentShape(Rectangle())
                         .gesture(
                             DragGesture(minimumDistance: 0)
                                 .onChanged { value in
-                                    // Start a new drawing if we just began
-                                    if !isDrawing {
-                                        drawingPoints = []
-                                        isDrawing = true
-                                    }
-                                    // Append points to our signal array
-                                    // LIMIT: We normalize to the frame size later,
-                                    // for now we just capture raw touch locations.
-                                    let newPoint = value.location
-                                    drawingPoints.append(newPoint)
+                                    // FIX: Do NOT clear array here. Just append.
+                                    if !isDrawing { isDrawing = true }
+                                    
+                                    // Check frame bounds to stop drawing outside box
+                                    // (Simple valid coordinate check)
+                                    // value.location is relative to the view
+                                    drawingPoints.append(value.location)
                                 }
                                 .onEnded { _ in
                                     isDrawing = false
-                                    // TRIGGER: This is where you will call your Math function
                                     processSignal(points: drawingPoints)
                                 }
                         )
+                        .clipped() // FIX: Keeps gestures/drawing inside bounds
                 }
-                .aspectRatio(1.0, contentMode: .fit) // Keep it square
+                .aspectRatio(1.0, contentMode: .fit)
                 .padding()
                 
-                // Controls
                 Button(action: {
                     drawingPoints = []
+                    computedEpicycles = [] // Clear output too
+                    computedTrace = []
                 }) {
                     Label("Clear Canvas", systemImage: "trash")
                         .foregroundColor(.red)
                 }
             }
             
-            // RIGHT PANEL: The Output (Frequency Domain / Epicycles)
+            // RIGHT PANEL: Output
             VStack {
                 Text("Output: Fourier Series")
                     .font(.headline)
                     .foregroundColor(.secondary)
                 
                 ZStack {
+                    // Background Match
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.black)
+                        .fill(Color(UIColor.secondarySystemBackground))
                         .shadow(radius: 5)
                     
                     if computedEpicycles.isEmpty {
                         Text("Draw something on the left!")
                             .foregroundColor(.gray)
                     } else {
-                        // THE NEW ANIMATION VIEW
-                        EpicycleView(epicycles: computedEpicycles)
+                        // Pass both epicycles AND the trace
+                        EpicycleView(epicycles: computedEpicycles, tracePoints: computedTrace)
                     }
                 }
                 .aspectRatio(1.0, contentMode: .fit)
@@ -95,9 +86,7 @@ struct FourierSketchpadView: View {
     }
     
     func processSignal(points: [CGPoint]) {
-        // 1. Center the drawing (Important!)
-        // If we don't do this, the "DC Offset" (Freq 0) will be huge
-        // and the circles will orbit a point far off-screen.
+        // 1. Center the drawing
         let centerX = points.map { $0.x }.reduce(0, +) / CGFloat(points.count)
         let centerY = points.map { $0.y }.reduce(0, +) / CGFloat(points.count)
         
@@ -105,11 +94,14 @@ struct FourierSketchpadView: View {
             CGPoint(x: $0.x - centerX, y: $0.y - centerY)
         }
         
-        // 2. Run the math
+        // 2. Run Math
         let rawEpicycles = FourierCalculator.computeEpicycles(from: centeredPoints, sampleCount: 256)
         
-        // 3. Update UI
+        // 3. Pre-calculate the Trace Path (so View is fast)
+        let trace = FourierCalculator.reconstructPath(from: rawEpicycles, sampleCount: 500) // 500 points for smoothness
+        
         self.computedEpicycles = rawEpicycles
+        self.computedTrace = trace
     }
 }
 
