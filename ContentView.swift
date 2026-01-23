@@ -1,11 +1,14 @@
 import SwiftUI
 
 struct FourierSketchpadView: View {
-    @State private var drawingPoints: [CGPoint] = []
-    @State private var isDrawing: Bool = false
+    // STATE UPDATE: We now hold an array of strokes (Visual)
+    // Each "Stroke" is an array of CGPoints
+    @State private var finishedStrokes: [[CGPoint]] = []
+    @State private var currentStroke: [CGPoint] = [] // The stroke currently being drawn
     
+    // OUTPUT STATE
     @State private var computedEpicycles: [Epicycle] = []
-    @State private var computedTrace: [CGPoint] = [] // New: The "Perfect" trace path
+    @State private var computedTrace: [CGPoint] = []
     
     var body: some View {
         HStack(spacing: 20) {
@@ -21,36 +24,47 @@ struct FourierSketchpadView: View {
                         .fill(Color(UIColor.secondarySystemBackground))
                         .shadow(radius: 5)
                     
-                    DrawShape(points: drawingPoints)
-                        .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    // LAYER 1: Finished Strokes (Previous lines)
+                    ForEach(0..<finishedStrokes.count, id: \.self) { index in
+                        DrawStroke(points: finishedStrokes[index])
+                            .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                    }
                     
+                    // LAYER 2: Current Stroke (Live drawing)
+                    DrawStroke(points: currentStroke)
+                        .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                    
+                    // GESTURE LAYER
                     Color.clear
                         .contentShape(Rectangle())
                         .gesture(
                             DragGesture(minimumDistance: 0)
                                 .onChanged { value in
-                                    // FIX: Do NOT clear array here. Just append.
-                                    if !isDrawing { isDrawing = true }
-                                    
-                                    // Check frame bounds to stop drawing outside box
-                                    // (Simple valid coordinate check)
-                                    // value.location is relative to the view
-                                    drawingPoints.append(value.location)
+                                    // Append points to the CURRENT stroke only
+                                    currentStroke.append(value.location)
                                 }
                                 .onEnded { _ in
-                                    isDrawing = false
-                                    processSignal(points: drawingPoints)
+                                    // 1. Move current stroke to finished storage
+                                    if !currentStroke.isEmpty {
+                                        finishedStrokes.append(currentStroke)
+                                        currentStroke = []
+                                    }
+                                    
+                                    // 2. Trigger Math
+                                    // We need to pass ALL points combined for the math
+                                    processSignal()
                                 }
                         )
-                        .clipped() // FIX: Keeps gestures/drawing inside bounds
+                        .clipped() // Keeps the gesture inside the box
                 }
                 .aspectRatio(1.0, contentMode: .fit)
                 .padding()
                 
                 Button(action: {
-                    drawingPoints = []
-                    computedEpicycles = [] // Clear output too
+                    // Clear everything
+                    finishedStrokes = []
+                    currentStroke = []
+                    computedEpicycles = []
                     computedTrace = []
                 }) {
                     Label("Clear Canvas", systemImage: "trash")
@@ -58,14 +72,13 @@ struct FourierSketchpadView: View {
                 }
             }
             
-            // RIGHT PANEL: Output
+            // RIGHT PANEL: Output (No changes here)
             VStack {
                 Text("Output: Fourier Series")
                     .font(.headline)
                     .foregroundColor(.secondary)
                 
                 ZStack {
-                    // Background Match
                     RoundedRectangle(cornerRadius: 16)
                         .fill(Color(UIColor.secondarySystemBackground))
                         .shadow(radius: 5)
@@ -74,7 +87,6 @@ struct FourierSketchpadView: View {
                         Text("Draw something on the left!")
                             .foregroundColor(.gray)
                     } else {
-                        // Pass both epicycles AND the trace
                         EpicycleView(epicycles: computedEpicycles, tracePoints: computedTrace)
                     }
                 }
@@ -85,35 +97,45 @@ struct FourierSketchpadView: View {
         .padding()
     }
     
-    func processSignal(points: [CGPoint]) {
-        // 1. Center the drawing
-        let centerX = points.map { $0.x }.reduce(0, +) / CGFloat(points.count)
-        let centerY = points.map { $0.y }.reduce(0, +) / CGFloat(points.count)
+    func processSignal() {
+        // 1. Flatten the strokes
+        // The Math Engine still needs one long list of points.
+        // It will interpret the "jump" between strokes as a fast travel line.
+        let allPoints = finishedStrokes.flatMap { $0 }
         
-        let centeredPoints = points.map {
+        guard allPoints.count > 1 else { return }
+        
+        // 2. Center the drawing
+        let centerX = allPoints.map { $0.x }.reduce(0, +) / CGFloat(allPoints.count)
+        let centerY = allPoints.map { $0.y }.reduce(0, +) / CGFloat(allPoints.count)
+        
+        let centeredPoints = allPoints.map {
             CGPoint(x: $0.x - centerX, y: $0.y - centerY)
         }
         
-        // 2. Run Math
+        // 3. Run Math
         let rawEpicycles = FourierCalculator.computeEpicycles(from: centeredPoints, sampleCount: 256)
         
-        // 3. Pre-calculate the Trace Path (so View is fast)
-        let trace = FourierCalculator.reconstructPath(from: rawEpicycles, sampleCount: 500) // 500 points for smoothness
+        // 4. Pre-calculate Trace
+        let trace = FourierCalculator.reconstructPath(from: rawEpicycles, sampleCount: 500)
         
         self.computedEpicycles = rawEpicycles
         self.computedTrace = trace
     }
 }
 
-// A simple Shape wrapper to render points as a line
-struct DrawShape: Shape {
+// UPDATE: Renamed to 'DrawStroke' and simplified
+struct DrawStroke: Shape {
     var points: [CGPoint]
     
     func path(in rect: CGRect) -> Path {
         var path = Path()
         guard let firstPoint = points.first else { return path }
         
+        // Start a new subpath for this stroke
         path.move(to: firstPoint)
+        
+        // Connect the dots
         for point in points.dropFirst() {
             path.addLine(to: point)
         }
