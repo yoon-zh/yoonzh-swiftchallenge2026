@@ -20,17 +20,33 @@ struct EpicycleView: View {
                 // We draw the path from index 0 up to current index
                 if !tracePoints.isEmpty {
                     var tracePath = Path()
-                    // Start at the first calculated point (adjusted for center)
                     let startPt = CGPoint(x: tracePoints[0].x + center.x, y: tracePoints[0].y + center.y)
                     tracePath.move(to: startPt)
                     
-                    // How many points to draw?
                     let maxIndex = Int(Double(tracePoints.count) * cycleProgress)
                     
                     if maxIndex > 0 {
+                        var lastPoint = startPt
+                        
+                        // THRESHOLD: If a segment is longer than this, it's a jump.
+                        // 50 points is usually a safe bet for a standard iPad screen size.
+                        let jumpThreshold: CGFloat = 20.0
+                        
                         for i in 1..<min(maxIndex, tracePoints.count) {
-                            let pt = tracePoints[i]
-                            tracePath.addLine(to: CGPoint(x: pt.x + center.x, y: pt.y + center.y))
+                            let rawPt = tracePoints[i]
+                            let currentPoint = CGPoint(x: rawPt.x + center.x, y: rawPt.y + center.y)
+                            
+                            // Check distance from last point
+                            let dist = sqrt(pow(currentPoint.x - lastPoint.x, 2) + pow(currentPoint.y - lastPoint.y, 2))
+                            
+                            if dist > jumpThreshold {
+                                // It's a jump! Lift pen and move.
+                                tracePath.move(to: currentPoint)
+                            } else {
+                                // It's a draw stroke
+                                tracePath.addLine(to: currentPoint)
+                            }
+                            lastPoint = currentPoint
                         }
                     }
                     context.stroke(tracePath, with: .color(.yellow), lineWidth: 2)
@@ -42,7 +58,7 @@ struct EpicycleView: View {
                 // We calculate the exact time-based position for the arms
                 // Note: We use the raw 'time' variable here for continuous rotation
                 let t = time.truncatingRemainder(dividingBy: 2.0 * .pi)
-
+                
                 for circle in epicycles {
                     let radius = circle.amplitude
                     let angle = circle.phase + (Double(circle.frequency) * t)

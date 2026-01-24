@@ -11,28 +11,33 @@ struct Epicycle: Identifiable {
 
 class FourierCalculator {
     
-    // MARK: - Main Pipeline
-    static func computeEpicycles(from rawPoints: [CGPoint], sampleCount: Int = 256) -> [Epicycle] {
-        guard rawPoints.count > 1 else { return [] }
+    // MARK: - Main Pipeline (Updated)
         
-        // 1. Resample
-        let uniformPoints = resample(points: rawPoints, targetCount: sampleCount)
-        
-        // 2. Prepare for FFT
-        var realParts = uniformPoints.map { Float($0.x) }
-        var imagParts = uniformPoints.map { Float($0.y) }
-        
-        // 3. Run FFT
-        let fftResult = performFFT(real: &realParts, imag: &imagParts)
-        
-        // 4. Convert (With Negative Frequency Fix)
-        var epicycles = convertToEpicycles(real: fftResult.real, imag: fftResult.imag)
-        
-        // 5. Sort by Amplitude
-        epicycles.sort { $0.amplitude > $1.amplitude }
-        
-        return epicycles
-    }
+        // CHANGE: Accepts [[CGPoint]] (Array of strokes) instead of [CGPoint]
+        static func computeEpicycles(from rawStrokes: [[CGPoint]], sampleCount: Int = 256) -> [Epicycle] {
+            // Flatten just to check if we have data
+            let flatPoints = rawStrokes.flatMap { $0 }
+            guard flatPoints.count > 1 else { return [] }
+            
+            // 1. Resample preserving gaps
+            let uniformPoints = resampleStrokes(strokes: rawStrokes, targetCount: sampleCount)
+            guard uniformPoints.count == sampleCount else { return [] }
+            
+            // 2. Prepare for FFT
+            var realParts = uniformPoints.map { Float($0.x) }
+            var imagParts = uniformPoints.map { Float($0.y) }
+            
+            // 3. Run FFT
+            let fftResult = performFFT(real: &realParts, imag: &imagParts)
+            
+            // 4. Convert (With Negative Frequency Fix)
+            var epicycles = convertToEpicycles(real: fftResult.real, imag: fftResult.imag)
+            
+            // 5. Sort by Amplitude
+            epicycles.sort { $0.amplitude > $1.amplitude }
+            
+            return epicycles
+        }
     
     // MARK: - Helper: Reconstruct Path
     // We pre-calculate the "Perfect Trace" so the UI doesn't have to do it 60 times a second
@@ -57,16 +62,64 @@ class FourierCalculator {
         return pathPoints
     }
 
-    // MARK: - Resampling (Your FIXED version)
-    private static func resample(points: [CGPoint], targetCount: Int) -> [CGPoint] {
-        guard points.count > 1 else { return points }
+    // MARK: - Resampling (Gap-Skipping Version)
+    private static func resampleStrokes(strokes: [[CGPoint]], targetCount: Int) -> [CGPoint] {
+        // 1. Calculate total length of ACTUAL INK (ignoring gaps)
+        var totalInkLength: CGFloat = 0
+        var strokeLengths: [CGFloat] = []
         
+        for stroke in strokes {
+            var len: CGFloat = 0
+            if stroke.count > 1 {
+                for i in 0..<stroke.count - 1 {
+                    len += distance(stroke[i], stroke[i+1])
+                }
+            }
+            strokeLengths.append(len)
+            totalInkLength += len
+        }
+        
+        if totalInkLength == 0 { return [] }
+        
+        // 2. Distribute samples based on stroke length contribution
+        var finalPoints: [CGPoint] = []
+        
+        for (index, stroke) in strokes.enumerated() {
+            guard stroke.count > 1 else { continue }
+            
+            // How many points does this stroke deserve?
+            // We use standard rounding, but ensure at least 1 point if meaningful
+            let strokeShare = strokeLengths[index] / totalInkLength
+            let strokeSampleCount = Int(Double(targetCount) * strokeShare)
+            
+            if strokeSampleCount > 1 {
+                let resampledStroke = resampleSingleStroke(points: stroke, targetCount: strokeSampleCount)
+                finalPoints.append(contentsOf: resampledStroke)
+            }
+        }
+        
+        // 3. Pad or Trim to match exact targetCount (FFT strict requirement)
+        // Because of rounding, we might be off by a few points.
+        if finalPoints.isEmpty { return [] }
+        
+        // Loop wrapping logic to fill gaps if under-sampled
+        while finalPoints.count < targetCount {
+            finalPoints.append(finalPoints.last!)
+        }
+        // Trim if over-sampled
+        if finalPoints.count > targetCount {
+            finalPoints = Array(finalPoints.prefix(targetCount))
+        }
+        
+        return finalPoints
+    }
+    
+    // Helper for a single stroke (Same logic as before, just scoped)
+    private static func resampleSingleStroke(points: [CGPoint], targetCount: Int) -> [CGPoint] {
         var totalLength: CGFloat = 0
         for i in 0..<points.count - 1 {
             totalLength += distance(points[i], points[i+1])
         }
-        
-        if totalLength == 0 { return Array(points.prefix(targetCount)) }
         
         let interval = totalLength / CGFloat(targetCount - 1)
         var newPoints: [CGPoint] = [points.first!]
@@ -79,8 +132,8 @@ class FourierCalculator {
             let segmentLength = distance(p1, p2)
             
             while currentPathDist + segmentLength >= nextSampleDist {
-                let distanceIntoSegment = nextSampleDist - currentPathDist
-                let t = distanceIntoSegment / segmentLength
+                let distInto = nextSampleDist - currentPathDist
+                let t = distInto / segmentLength
                 let newX = p1.x + (p2.x - p1.x) * t
                 let newY = p1.y + (p2.y - p1.y) * t
                 newPoints.append(CGPoint(x: newX, y: newY))
@@ -91,9 +144,8 @@ class FourierCalculator {
             if newPoints.count >= targetCount { break }
         }
         
+        // Local cleanup
         while newPoints.count < targetCount { newPoints.append(points.last!) }
-        if newPoints.count > targetCount { newPoints = Array(newPoints.prefix(targetCount)) }
-        
         return newPoints
     }
     
@@ -104,7 +156,20 @@ class FourierCalculator {
     // MARK: - FFT Implementation
     private static func performFFT(real: inout [Float], imag: inout [Float]) -> (real: [Float], imag: [Float]) {
         let n = real.count
+        
+        // FIX: Prevent crash on empty arrays or single points
+        guard n > 1 else { return (real, imag) }
+        
         let log2n = vDSP_Length(log2(Float(n)))
+        
+        // Optional safety: ensure n is actually a power of 2 to match the log2 calculation
+        // (Though your resampling logic usually forces 256, this handles edge cases)
+        let powerOfTwo = Int(pow(2.0, Double(log2n)))
+        guard n == powerOfTwo else {
+            print("FFT Error: Sample count \(n) is not a power of 2")
+            return (real, imag)
+        }
+        
         guard let fftSetup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2)) else { return (real, imag) }
         
         real.withUnsafeMutableBufferPointer { realPtr in

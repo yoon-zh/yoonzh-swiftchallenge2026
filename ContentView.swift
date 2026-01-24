@@ -98,25 +98,23 @@ struct FourierSketchpadView: View {
     }
     
     func processSignal() {
-        // 1. Flatten the strokes
-        // The Math Engine still needs one long list of points.
-        // It will interpret the "jump" between strokes as a fast travel line.
+        // 1. Center logic needs to handle the nested array structure
         let allPoints = finishedStrokes.flatMap { $0 }
-        
         guard allPoints.count > 1 else { return }
         
-        // 2. Center the drawing
         let centerX = allPoints.map { $0.x }.reduce(0, +) / CGFloat(allPoints.count)
         let centerY = allPoints.map { $0.y }.reduce(0, +) / CGFloat(allPoints.count)
         
-        let centeredPoints = allPoints.map {
-            CGPoint(x: $0.x - centerX, y: $0.y - centerY)
+        // Create centered strokes
+        let centeredStrokes = finishedStrokes.map { stroke in
+            stroke.map { CGPoint(x: $0.x - centerX, y: $0.y - centerY) }
         }
         
-        // 3. Run Math
-        let rawEpicycles = FourierCalculator.computeEpicycles(from: centeredPoints, sampleCount: 256)
+        // 2. Run Math (Passing STROKES, not flat points)
+        // This uses the new gap-skipping logic
+        let rawEpicycles = FourierCalculator.computeEpicycles(from: centeredStrokes, sampleCount: 256)
         
-        // 4. Pre-calculate Trace
+        // 3. Trace
         let trace = FourierCalculator.reconstructPath(from: rawEpicycles, sampleCount: 500)
         
         self.computedEpicycles = rawEpicycles
@@ -144,22 +142,22 @@ struct DrawStroke: Shape {
 }
 
 /*
-struct ContentView: View {
-    @State var text: String = "default"
-    
-    var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundColor(.accentColor)
-            Text(text)
-            
-            Button("Hello") {
-                text = "todo"
-            }
-            
-        }
-    }
-}
-*/
+ struct ContentView: View {
+ @State var text: String = "default"
+ 
+ var body: some View {
+ VStack {
+ Image(systemName: "globe")
+ .imageScale(.large)
+ .foregroundColor(.accentColor)
+ Text(text)
+ 
+ Button("Hello") {
+ text = "todo"
+ }
+ 
+ }
+ }
+ }
+ */
 
