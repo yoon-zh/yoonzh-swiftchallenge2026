@@ -73,6 +73,7 @@ struct FourierSketchpadView: View {
                             }
                             .clipped()
                         }
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
                         .aspectRatio(1.0, contentMode: .fit)
                         .padding()
                         
@@ -171,18 +172,24 @@ struct FourierSketchpadView: View {
         applyFilter()
     }
 
-    // Filter logic for the slider
+    // NEW: True Low-Pass Filter logic
     func applyFilter() {
         guard !computedEpicycles.isEmpty else {
             activeEpicycles = []
             activeTrace = []
             return
         }
-        // Slice the array based on the percentage (1.0 = all, 0.1 = top 10%)
-        let keepCount = max(1, Int(Double(computedEpicycles.count) * smoothness))
-        activeEpicycles = Array(computedEpicycles.prefix(keepCount))
         
-        // Reconstruct only the filtered path
+        // 1. Find the highest absolute frequency in the math
+        let highestFreq = computedEpicycles.map { abs($0.frequency) }.max() ?? 1
+        
+        // 2. Set a cutoff based on the slider (1.0 = keep all, 0.1 = keep only slow circles)
+        let cutoff = Int(Double(highestFreq) * smoothness)
+        
+        // 3. Keep only the circles that spin slower than or equal to the cutoff
+        activeEpicycles = computedEpicycles.filter { abs($0.frequency) <= cutoff }
+        
+        // 4. Reconstruct the filtered path
         activeTrace = FourierCalculator.reconstructPath(from: activeEpicycles, sampleCount: 512)
     }
 }

@@ -58,7 +58,7 @@ struct AnalysisDrawerView: View {
                             // We only graph the top 50 so the chart remains readable
                             Chart(epicycles.prefix(50)) { epi in
                                 BarMark(
-                                    x: .value("Frequency", "\(epi.frequency)"),
+                                    x: .value("Frequency", epi.frequency),
                                     y: .value("Amplitude", epi.amplitude)
                                 )
                                 .foregroundStyle(Color.blue.gradient)
@@ -75,7 +75,7 @@ struct AnalysisDrawerView: View {
                             
                             Chart(epicycles.prefix(50)) { epi in
                                 PointMark(
-                                    x: .value("Frequency", "\(epi.frequency)"),
+                                    x: .value("Frequency", epi.frequency),
                                     y: .value("Phase", epi.phase)
                                 )
                                 .foregroundStyle(Color.purple)
