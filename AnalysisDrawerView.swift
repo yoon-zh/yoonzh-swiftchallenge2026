@@ -1,16 +1,15 @@
-// AnalysisDrawerView.swift
 import SwiftUI
 import Charts
 
 struct AnalysisDrawerView: View {
     let epicycles: [Epicycle]
     
-    // NEW: Bindings
+    // Bindings
     @Binding var showDrawer: Bool
     @Binding var minFreqRatio: Double
     @Binding var maxFreqRatio: Double
     
-    // NEW: Alert States
+    // Alert States
     @State private var showFilterInfo = false
     @State private var showMagInfo = false
     @State private var showPhaseInfo = false
@@ -18,7 +17,7 @@ struct AnalysisDrawerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             
-            // NEW: Header with explicit Close Button
+            // Header with explicit Close Button
             HStack {
                 Text("Analysis")
                     .font(.title2.bold())
@@ -63,12 +62,12 @@ struct AnalysisDrawerView: View {
                         .alert("Frequency Filter", isPresented: $showFilterInfo) {
                             Button("OK", role: .cancel) { }
                         } message: {
-                            Text("This controls which spinning circles make it into the final drawing. Keeping slow frequencies gives you the general, smooth shape. Keeping fast frequencies gives you the sharp corners and tiny jitters.")
+                            Text("This controls which spinning circles make it into the final drawing. Keeping low frequencies gives you the general, smooth shape. Keeping high frequencies gives you the sharp corners and tiny jitters.")
                         }
                         
                         Divider()
                         
-                        // 2. MAGNITUDE SPECTRUM (with Filter Graph)
+                        // 2. MAGNITUDE SPECTRUM (with conditional coloring)
                         VStack(alignment: .leading) {
                             HStack {
                                 Text("Magnitude Spectrum").font(.headline)
@@ -83,33 +82,39 @@ struct AnalysisDrawerView: View {
                             
                             let safeMin = min(minFreqRatio, maxFreqRatio)
                             let safeMax = max(minFreqRatio, maxFreqRatio)
+                            // Calculate cutoffs once outside the loop
                             let minCutoff = Int(Double(highestFreq) * safeMin)
                             let maxCutoff = Int(Double(highestFreq) * safeMax)
                             let maxAmp = displayEpis.map { $0.amplitude }.max() ?? 1.0
                             
                             Chart(displayEpis) { epi in
-                                // THE FILTER GRAPH (H[k])
+                                // NEW: Determine if this specific frequency passes the filter
+                                let absFreq = abs(epi.frequency)
+                                let isPassing = absFreq >= minCutoff && absFreq <= maxCutoff
+                                
+                                // THE FILTER GRAPH (H[k]) - Changed to subtle gray
                                 RectangleMark(
                                     xStart: .value("Min Cutoff", minCutoff),
                                     xEnd: .value("Max Cutoff", maxCutoff),
                                     yStart: .value("Floor", 0),
                                     yEnd: .value("Ceiling", maxAmp)
                                 )
-                                .foregroundStyle(Color.blue.opacity(0.15))
+                                .foregroundStyle(Color.gray.opacity(0.1)) // <--- CHANGED
                                 
-                                // THE DATA (X[k])
+                                // THE DATA (X[k]) - Conditional coloring
                                 BarMark(
                                     x: .value("Frequency", epi.frequency),
                                     y: .value("Amplitude", epi.amplitude)
                                 )
-                                .foregroundStyle(Color.blue.gradient)
+                                // NEW: If passing, blue. If filtered out, dim gray.
+                                .foregroundStyle(isPassing ? Color.blue.gradient : Color.gray.opacity(0.3).gradient)
                             }
                             .frame(height: 150)
                         }
                         .alert("Magnitude Spectrum", isPresented: $showMagInfo) {
                             Button("OK", role: .cancel) { }
                         } message: {
-                            Text("This shows the size of each spinning circle. Taller bars mean larger circles. The shaded blue area shows which circles are currently being allowed through your filter!")
+                            Text("This shows the size of each spinning circle. Taller bars mean larger circles. The bright blue bars are the ones currently passing through your filter and creating the drawing.")
                         }
                         
                         Divider()
@@ -137,7 +142,7 @@ struct AnalysisDrawerView: View {
                         .alert("Phase Spectrum", isPresented: $showPhaseInfo) {
                             Button("OK", role: .cancel) { }
                         } message: {
-                            Text("This shows the starting angle of each circle. Even if a circle is the right size, if it starts spinning from the wrong angle, the drawing won't line up!")
+                            Text("This shows the starting angle of each circle. Every circle has a different starting angle to match the hand drawing.")
                         }
                     }
                 }
