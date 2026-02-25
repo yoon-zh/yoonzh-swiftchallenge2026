@@ -45,6 +45,12 @@ struct FourierSketchpadView: View {
                                             // BOUNDARY CHECK
                                             if geo.frame(in: .local).contains(value.location) {
                                                 currentStroke.append(value.location)
+                                            } else {
+                                                // NEW: If finger goes out of bounds, finish the stroke
+                                                if !currentStroke.isEmpty {
+                                                    finishedStrokes.append(currentStroke)
+                                                    currentStroke = []
+                                                }
                                             }
                                         }
                                         .onEnded { _ in

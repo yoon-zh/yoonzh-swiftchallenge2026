@@ -32,7 +32,7 @@ struct EpicycleView: View {
                         
                         // THRESHOLD: If a segment is longer than this, it's a jump.
                         // 50 points is usually a safe bet for a standard iPad screen size.
-                        let jumpThreshold: CGFloat = 20.0
+                        let jumpThreshold: CGFloat = 8.0
                         
                         for i in 1..<min(maxIndex, tracePoints.count) {
                             let rawPt = tracePoints[i]
