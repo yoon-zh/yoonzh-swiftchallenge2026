@@ -4,62 +4,100 @@ import Charts
 
 struct AnalysisDrawerView: View {
     let epicycles: [Epicycle]
-    @Binding var smoothness: Double
+    
+    // NEW: Bindings
+    @Binding var showDrawer: Bool
+    @Binding var minFreqRatio: Double
+    @Binding var maxFreqRatio: Double
+    
+    // NEW: Alert States
+    @State private var showFilterInfo = false
+    @State private var showMagInfo = false
+    @State private var showPhaseInfo = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            Text("Analysis")
-                .font(.title2.bold())
+        VStack(alignment: .leading, spacing: 16) {
+            
+            // NEW: Header with explicit Close Button
+            HStack {
+                Text("Analysis")
+                    .font(.title2.bold())
+                Spacer()
+                Button(action: {
+                    withAnimation(.spring()) { showDrawer = false }
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.gray)
+                        .font(.title2)
+                }
+            }
+            .padding(.bottom, 8)
             
             if epicycles.isEmpty {
                 Text("Awaiting data...")
                     .foregroundColor(.secondary)
                 Spacer()
             } else {
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 24) {
                         
-                        // 1. SMOOTHNESS SLIDER
-                        VStack(alignment: .leading) {
-                            Text("Smoothness Filter")
-                                .font(.headline)
-                            Text("Keeping top \(Int(smoothness * 100))% of frequencies")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            Slider(value: $smoothness, in: 0.01...1.0)
-                                .tint(.blue)
-                        }
-                        
-                        Divider()
-                        
-                        // 2. PEAK VALUES
+                        // 1. FREQUENCY FILTER (Band-Pass)
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Top 3 Peaks").font(.headline)
-                            let topPeaks = Array(epicycles.prefix(3))
-                            ForEach(0..<topPeaks.count, id: \.self) { i in
-                                let epi = topPeaks[i]
-                                HStack {
-                                    Text("#\(i+1)")
-                                        .font(.caption.bold())
-                                        .foregroundColor(.secondary)
-                                    Text("Freq: \(epi.frequency)")
-                                    Spacer()
-                                    Text("Amp: \(String(format: "%.1f", epi.amplitude))")
+                            HStack {
+                                Text("Frequency Filter").font(.headline)
+                                Button(action: { showFilterInfo = true }) {
+                                    Image(systemName: "questionmark.circle").foregroundColor(.blue)
                                 }
-                                .font(.subheadline)
+                            }
+                            Text("Remove specific speeds from the drawing.")
+                                .font(.caption).foregroundColor(.secondary)
+                            
+                            VStack(alignment: .leading) {
+                                Text("Lower Bound (High-Pass)").font(.caption2)
+                                Slider(value: $minFreqRatio, in: 0.0...1.0).tint(.orange)
+                                
+                                Text("Upper Bound (Low-Pass)").font(.caption2)
+                                Slider(value: $maxFreqRatio, in: 0.0...1.0).tint(.blue)
                             }
                         }
+                        .alert("Frequency Filter", isPresented: $showFilterInfo) {
+                            Button("OK", role: .cancel) { }
+                        } message: {
+                            Text("This controls which spinning circles make it into the final drawing. Keeping slow frequencies gives you the general, smooth shape. Keeping fast frequencies gives you the sharp corners and tiny jitters.")
+                        }
                         
                         Divider()
                         
-                        // 3. MAGNITUDE SPECTRUM
+                        // 2. MAGNITUDE SPECTRUM (with Filter Graph)
                         VStack(alignment: .leading) {
-                            Text("Magnitude Spectrum").font(.headline)
+                            HStack {
+                                Text("Magnitude Spectrum").font(.headline)
+                                Button(action: { showMagInfo = true }) {
+                                    Image(systemName: "questionmark.circle").foregroundColor(.blue)
+                                }
+                            }
                             Text("Frequency vs. Amplitude").font(.caption).foregroundColor(.secondary)
                             
-                            // We only graph the top 50 so the chart remains readable
-                            Chart(epicycles.prefix(50)) { epi in
+                            let displayEpis = epicycles.prefix(50)
+                            let highestFreq = epicycles.map { abs($0.frequency) }.max() ?? 1
+                            
+                            let safeMin = min(minFreqRatio, maxFreqRatio)
+                            let safeMax = max(minFreqRatio, maxFreqRatio)
+                            let minCutoff = Int(Double(highestFreq) * safeMin)
+                            let maxCutoff = Int(Double(highestFreq) * safeMax)
+                            let maxAmp = displayEpis.map { $0.amplitude }.max() ?? 1.0
+                            
+                            Chart(displayEpis) { epi in
+                                // THE FILTER GRAPH (H[k])
+                                RectangleMark(
+                                    xStart: .value("Min Cutoff", minCutoff),
+                                    xEnd: .value("Max Cutoff", maxCutoff),
+                                    yStart: .value("Floor", 0),
+                                    yEnd: .value("Ceiling", maxAmp)
+                                )
+                                .foregroundStyle(Color.blue.opacity(0.15))
+                                
+                                // THE DATA (X[k])
                                 BarMark(
                                     x: .value("Frequency", epi.frequency),
                                     y: .value("Amplitude", epi.amplitude)
@@ -68,12 +106,22 @@ struct AnalysisDrawerView: View {
                             }
                             .frame(height: 150)
                         }
+                        .alert("Magnitude Spectrum", isPresented: $showMagInfo) {
+                            Button("OK", role: .cancel) { }
+                        } message: {
+                            Text("This shows the size of each spinning circle. Taller bars mean larger circles. The shaded blue area shows which circles are currently being allowed through your filter!")
+                        }
                         
                         Divider()
                         
-                        // 4. PHASE SPECTRUM
+                        // 3. PHASE SPECTRUM
                         VStack(alignment: .leading) {
-                            Text("Phase Spectrum").font(.headline)
+                            HStack {
+                                Text("Phase Spectrum").font(.headline)
+                                Button(action: { showPhaseInfo = true }) {
+                                    Image(systemName: "questionmark.circle").foregroundColor(.blue)
+                                }
+                            }
                             Text("Frequency vs. Start Angle").font(.caption).foregroundColor(.secondary)
                             
                             Chart(epicycles.prefix(50)) { epi in
@@ -84,8 +132,12 @@ struct AnalysisDrawerView: View {
                                 .foregroundStyle(Color.purple)
                             }
                             .frame(height: 150)
-                            // Set Y-axis to radians (-pi to pi)
-                            .chartYScale(domain: -Double.pi...Double.pi) 
+                            .chartYScale(domain: -Double.pi...Double.pi)
+                        }
+                        .alert("Phase Spectrum", isPresented: $showPhaseInfo) {
+                            Button("OK", role: .cancel) { }
+                        } message: {
+                            Text("This shows the starting angle of each circle. Even if a circle is the right size, if it starts spinning from the wrong angle, the drawing won't line up!")
                         }
                     }
                 }
@@ -93,7 +145,6 @@ struct AnalysisDrawerView: View {
         }
         .padding()
         .background(Color(UIColor.systemBackground))
-        // Shadow to separate the drawer from the main view
-        .shadow(color: Color.black.opacity(0.1), radius: 10, x: -5, y: 0) 
+        .shadow(color: Color.black.opacity(0.1), radius: 10, x: -5, y: 0)
     }
 }

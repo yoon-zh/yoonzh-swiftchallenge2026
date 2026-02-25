@@ -17,7 +17,10 @@ struct FourierSketchpadView: View {
     
     // Drawer State
     @State private var showDrawer = false
-    @State private var smoothness: Double = 1.0 // 1.0 = Keep all circles
+    
+    // NEW: Replaced 'smoothness' with Min and Max bounds for Band-Pass
+    @State private var minFreqRatio: Double = 0.0
+    @State private var maxFreqRatio: Double = 1.0
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -44,18 +47,15 @@ struct FourierSketchpadView: View {
                             DrawStroke(points: currentStroke)
                                 .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
                             
-                            // GeometryReader limits drawing strictly to the box frame
                             GeometryReader { geo in
                                 Color.clear
                                     .contentShape(Rectangle())
                                     .gesture(
                                         DragGesture(minimumDistance: 0)
                                             .onChanged { value in
-                                                // BOUNDARY CHECK
                                                 if geo.frame(in: .local).contains(value.location) {
                                                     currentStroke.append(value.location)
                                                 } else {
-                                                    // If finger goes out of bounds, finish the stroke
                                                     if !currentStroke.isEmpty {
                                                         finishedStrokes.append(currentStroke)
                                                         currentStroke = []
@@ -78,7 +78,6 @@ struct FourierSketchpadView: View {
                         .padding()
                         
                         Button(action: {
-                            // FIXED: Clears the correct active arrays
                             finishedStrokes = []
                             currentStroke = []
                             computedEpicycles = []
@@ -117,12 +116,18 @@ struct FourierSketchpadView: View {
 
                 // THE SLIDE-OUT DRAWER
                 if showDrawer {
-                    AnalysisDrawerView(epicycles: computedEpicycles, smoothness: $smoothness)
-                        .frame(width: 320)
-                        .transition(.move(edge: .trailing))
+                    // NEW: Pass the new states to the drawer
+                    AnalysisDrawerView(
+                        epicycles: computedEpicycles,
+                        showDrawer: $showDrawer,
+                        minFreqRatio: $minFreqRatio,
+                        maxFreqRatio: $maxFreqRatio
+                    )
+                    .frame(width: 350)
+                    .transition(.move(edge: .trailing))
                 }
                 
-            } // FIXED: Added missing bracket to close the HStack(spacing: 0)
+            }
             
             // TOP BUTTONS
             HStack {
@@ -132,7 +137,6 @@ struct FourierSketchpadView: View {
                         .foregroundColor(.blue)
                 }
                 Spacer()
-                // Drawer Toggle Button
                 Button(action: {
                     withAnimation(.spring()) {
                         showDrawer.toggle()
@@ -145,16 +149,15 @@ struct FourierSketchpadView: View {
             }
             .padding()
             
-        } // FIXED: Added missing bracket to close the ZStack
+        }
         .alert("How it Works", isPresented: $showInfo) {
             Button("Got it!", role: .cancel) { }
         } message: {
             Text("Draw any shape on the left. The app breaks your drawing down into a chain of spinning circles, which work together to perfectly redraw your shape on the right.")
         }
-        // Recalculate the line when the slider moves
-        .onChange(of: smoothness) { _ in
-            applyFilter()
-        }
+        // NEW: Recalculate when either slider moves
+        .onChange(of: minFreqRatio) { _ in applyFilter() }
+        .onChange(of: maxFreqRatio) { _ in applyFilter() }
     }
     
     func processSignal() {
@@ -172,7 +175,7 @@ struct FourierSketchpadView: View {
         applyFilter()
     }
 
-    // NEW: True Low-Pass Filter logic
+    // NEW: Band-Pass Filter Logic
     func applyFilter() {
         guard !computedEpicycles.isEmpty else {
             activeEpicycles = []
@@ -180,16 +183,20 @@ struct FourierSketchpadView: View {
             return
         }
         
-        // 1. Find the highest absolute frequency in the math
         let highestFreq = computedEpicycles.map { abs($0.frequency) }.max() ?? 1
         
-        // 2. Set a cutoff based on the slider (1.0 = keep all, 0.1 = keep only slow circles)
-        let cutoff = Int(Double(highestFreq) * smoothness)
+        // Ensure bounds don't cross to prevent crashes
+        let safeMin = min(minFreqRatio, maxFreqRatio)
+        let safeMax = max(minFreqRatio, maxFreqRatio)
         
-        // 3. Keep only the circles that spin slower than or equal to the cutoff
-        activeEpicycles = computedEpicycles.filter { abs($0.frequency) <= cutoff }
+        let minCutoff = Int(Double(highestFreq) * safeMin)
+        let maxCutoff = Int(Double(highestFreq) * safeMax)
         
-        // 4. Reconstruct the filtered path
+        activeEpicycles = computedEpicycles.filter { 
+            let f = abs($0.frequency)
+            return f >= minCutoff && f <= maxCutoff 
+        }
+        
         activeTrace = FourierCalculator.reconstructPath(from: activeEpicycles, sampleCount: 512)
     }
 }
