@@ -21,11 +21,38 @@ struct FourierSketchpadView: View {
     // NEW: Replaced 'smoothness' with Min and Max bounds for Band-Pass
     @State private var minFreqRatio: Double = 0.0
     @State private var maxFreqRatio: Double = 1.0
+
+    // Foundation models text input
+    @State private var textInput: String = ""
+    @State private var isGenerating: Bool = false
     
     var body: some View {
         ZStack(alignment: .top) {
             
             HStack(spacing: 0) {
+                // Text input
+                HStack {
+                    TextField("Type a shape (e.g., 'heart', 'star', 'sine')", text: $textInput)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .padding(.leading)
+                    
+                    Button(action: {
+                        Task {
+                            await generateShapeFromText(query: textInput)
+                        }
+                    }) {
+                        if isGenerating {
+                            ProgressView().padding(.trailing)
+                        } else {
+                            Image(systemName: "wand.and.stars")
+                                .font(.title2)
+                                .foregroundColor(.purple)
+                                .padding(.trailing)
+                        }
+                    }
+                }
+                .padding(.top, 10)
+
                 // MAIN CANVAS AREA
                 HStack(spacing: 20) {
                     // LEFT PANEL: Input
@@ -213,5 +240,53 @@ struct DrawStroke: Shape {
             path.addLine(to: point)
         }
         return path
+    }
+}
+
+// MARK: - Foundation Model Integration
+func generateShapeFromText(query: String) async {
+    isGenerating = true
+    
+    // 1. CALL YOUR FOUNDATION MODEL HERE
+    // Example: let response = await myLanguageModel.generate("Extract the shape intent from: \(query)")
+    let detectedIntent = query.lowercased() // Mocking the LLM intent extraction
+    
+    // 2. GENERATE POINTS BASED ON INTENT
+    var newStroke: [CGPoint] = []
+    let center = CGPoint(x: 150, y: 150) // Adjust based on your canvas
+    let sampleCount = 100
+    
+    switch detectedIntent {
+    case "heart":
+        // Parametric Heart
+        for i in 0..<sampleCount {
+            let t = (Double(i) / Double(sampleCount)) * 2.0 * .pi
+            let x = 16 * pow(sin(t), 3)
+            let y = -(13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t))
+            
+            // Scale and translate
+            newStroke.append(CGPoint(x: (x * 5) + center.x, y: (y * 5) + center.y))
+        }
+    case "sine":
+        // Sine Wave
+        for i in 0..<sampleCount {
+            let t = (Double(i) / Double(sampleCount)) * 4.0 * .pi
+            let x = Double(i) * 2.5
+            let y = sin(t) * 50
+            newStroke.append(CGPoint(x: x + 50, y: y + center.y))
+        }
+    // Add more shapes...
+    default:
+        print("Model generated unrecognized shape")
+    }
+    
+    // 3. INJECT INTO YOUR PIPELINE
+    await MainActor.run {
+        if !newStroke.isEmpty {
+            self.finishedStrokes = [newStroke] // Replace or append
+            self.processSignal() // Triggers the FFT!
+        }
+        self.isGenerating = false
+        self.textInput = ""
     }
 }
