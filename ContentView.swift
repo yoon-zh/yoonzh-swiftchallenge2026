@@ -136,7 +136,7 @@ struct FourierSketchpadView: View {
         let rawEpicycles = FourierCalculator.computeEpicycles(from: centeredStrokes, sampleCount: 512)
         
         // SMOOTHING FIX: Increased sampleCount to 2000 for a much smoother reconstructed line
-        let trace = FourierCalculator.reconstructPath(from: rawEpicycles, sampleCount: 2000)
+        let trace = FourierCalculator.reconstructPath(from: rawEpicycles, sampleCount: 512)
         
         self.computedEpicycles = rawEpicycles
         self.computedTrace = trace
