@@ -9,13 +9,13 @@ struct FourierSketchpadView: View {
     // The raw math output
     @State private var computedEpicycles: [Epicycle] = []
     
-    // NEW: The filtered output passed to the UI
+    // The filtered output passed to the UI
     @State private var activeEpicycles: [Epicycle] = []
     @State private var activeTrace: [CGPoint] = []
     
     @State private var showInfo = false
     
-    // NEW: Drawer State
+    // Drawer State
     @State private var showDrawer = false
     @State private var smoothness: Double = 1.0 // 1.0 = Keep all circles
     
@@ -25,69 +25,71 @@ struct FourierSketchpadView: View {
             HStack(spacing: 0) {
                 // MAIN CANVAS AREA
                 HStack(spacing: 20) {
-                // LEFT PANEL: Input
-                VStack {
-                    Text("Input: Draw & Lift Finger")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                    
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color(UIColor.secondarySystemBackground))
-                            .shadow(radius: 5)
+                    // LEFT PANEL: Input
+                    VStack {
+                        Text("Input: Draw & Lift Finger")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
                         
-                        ForEach(0..<finishedStrokes.count, id: \.self) { index in
-                            DrawStroke(points: finishedStrokes[index])
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color(UIColor.secondarySystemBackground))
+                                .shadow(radius: 5)
+                            
+                            ForEach(0..<finishedStrokes.count, id: \.self) { index in
+                                DrawStroke(points: finishedStrokes[index])
+                                    .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                            }
+                            
+                            DrawStroke(points: currentStroke)
                                 .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                        }
-                        
-                        DrawStroke(points: currentStroke)
-                            .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                        
-                        // NEW: GeometryReader limits drawing strictly to the box frame
-                        GeometryReader { geo in
-                            Color.clear
-                                .contentShape(Rectangle())
-                                .gesture(
-                                    DragGesture(minimumDistance: 0)
-                                        .onChanged { value in
-                                            // BOUNDARY CHECK
-                                            if geo.frame(in: .local).contains(value.location) {
-                                                currentStroke.append(value.location)
-                                            } else {
-                                                // NEW: If finger goes out of bounds, finish the stroke
+                            
+                            // GeometryReader limits drawing strictly to the box frame
+                            GeometryReader { geo in
+                                Color.clear
+                                    .contentShape(Rectangle())
+                                    .gesture(
+                                        DragGesture(minimumDistance: 0)
+                                            .onChanged { value in
+                                                // BOUNDARY CHECK
+                                                if geo.frame(in: .local).contains(value.location) {
+                                                    currentStroke.append(value.location)
+                                                } else {
+                                                    // If finger goes out of bounds, finish the stroke
+                                                    if !currentStroke.isEmpty {
+                                                        finishedStrokes.append(currentStroke)
+                                                        currentStroke = []
+                                                    }
+                                                }
+                                            }
+                                            .onEnded { _ in
                                                 if !currentStroke.isEmpty {
                                                     finishedStrokes.append(currentStroke)
                                                     currentStroke = []
                                                 }
+                                                processSignal()
                                             }
-                                        }
-                                        .onEnded { _ in
-                                            if !currentStroke.isEmpty {
-                                                finishedStrokes.append(currentStroke)
-                                                currentStroke = []
-                                            }
-                                            processSignal()
-                                        }
-                                )
+                                    )
+                            }
+                            .clipped()
                         }
-                        .clipped()
+                        .aspectRatio(1.0, contentMode: .fit)
+                        .padding()
+                        
+                        Button(action: {
+                            // FIXED: Clears the correct active arrays
+                            finishedStrokes = []
+                            currentStroke = []
+                            computedEpicycles = []
+                            activeEpicycles = []
+                            activeTrace = []
+                        }) {
+                            Label("Clear Canvas", systemImage: "trash")
+                                .foregroundColor(.red)
+                        }
                     }
-                    .aspectRatio(1.0, contentMode: .fit)
-                    .padding()
                     
-                    Button(action: {
-                        finishedStrokes = []
-                        currentStroke = []
-                        computedEpicycles = []
-                        computedTrace = []
-                    }) {
-                        Label("Clear Canvas", systemImage: "trash")
-                            .foregroundColor(.red)
-                    }
-                }
-                
-                // RIGHT PANEL: Output
+                    // RIGHT PANEL: Output
                     VStack {
                         Text("Output: Fourier Series")
                             .font(.headline)
@@ -102,7 +104,6 @@ struct FourierSketchpadView: View {
                                 Text("Draw something on the left!")
                                     .foregroundColor(.gray)
                             } else {
-                                // NEW: Pass the filtered arrays instead
                                 EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace)
                             }
                         }
@@ -113,14 +114,16 @@ struct FourierSketchpadView: View {
                 .padding(.top, 40)
                 .padding()
 
-                // NEW: THE SLIDE-OUT DRAWER
+                // THE SLIDE-OUT DRAWER
                 if showDrawer {
                     AnalysisDrawerView(epicycles: computedEpicycles, smoothness: $smoothness)
                         .frame(width: 320)
                         .transition(.move(edge: .trailing))
                 }
+                
+            } // FIXED: Added missing bracket to close the HStack(spacing: 0)
             
-           // TOP BUTTONS
+            // TOP BUTTONS
             HStack {
                 Button(action: { showInfo = true }) {
                     Image(systemName: "info.circle.fill")
@@ -128,7 +131,7 @@ struct FourierSketchpadView: View {
                         .foregroundColor(.blue)
                 }
                 Spacer()
-                // NEW: Drawer Toggle Button
+                // Drawer Toggle Button
                 Button(action: {
                     withAnimation(.spring()) {
                         showDrawer.toggle()
@@ -140,13 +143,14 @@ struct FourierSketchpadView: View {
                 }
             }
             .padding()
-        }
+            
+        } // FIXED: Added missing bracket to close the ZStack
         .alert("How it Works", isPresented: $showInfo) {
             Button("Got it!", role: .cancel) { }
         } message: {
             Text("Draw any shape on the left. The app breaks your drawing down into a chain of spinning circles, which work together to perfectly redraw your shape on the right.")
         }
-        // NEW: Recalculate the line when the slider moves
+        // Recalculate the line when the slider moves
         .onChange(of: smoothness) { _ in
             applyFilter()
         }
@@ -164,10 +168,10 @@ struct FourierSketchpadView: View {
         }
         
         self.computedEpicycles = FourierCalculator.computeEpicycles(from: centeredStrokes, sampleCount: 512)
-        applyFilter() // NEW: Apply the slider value immediately
+        applyFilter()
     }
 
-    // NEW: Filter logic for the slider
+    // Filter logic for the slider
     func applyFilter() {
         guard !computedEpicycles.isEmpty else {
             activeEpicycles = []
