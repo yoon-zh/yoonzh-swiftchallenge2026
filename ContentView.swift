@@ -1,7 +1,9 @@
 // ContentView.swift
 import SwiftUI
 import Charts
+import FoundationModels
 
+@available(iOS 26.0, *)
 struct FourierSketchpadView: View {
     @State private var finishedStrokes: [[CGPoint]] = []
     @State private var currentStroke: [CGPoint] = []
@@ -262,12 +264,21 @@ struct FourierSketchpadView: View {
         
         activeTrace = FourierCalculator.reconstructPath(from: activeEpicycles, sampleCount: 512)
     }
+    
+    @Generable
+    struct Output {
+        // my output
+    }
 
     // MARK: - Foundation Model Integration
     func generateShapeFromText(query: String) async {
         isGenerating = true
         
         // 1. CALL YOUR FOUNDATION MODEL HERE
+        let session = LanguageModelSession()
+        let response = try await session.respond(to: "Extract the shape intent from: \(query)")
+        
+        
         // Example: let response = await myLanguageModel.generate("Extract the shape intent from: \(query)")
         let detectedIntent = query.lowercased() // Mocking the LLM intent extraction
         
