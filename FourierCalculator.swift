@@ -1,3 +1,5 @@
+// FourierCalculator.swift
+
 import Foundation
 import Accelerate
 import CoreGraphics

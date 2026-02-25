@@ -1,3 +1,5 @@
+// EpicycleView.swift
+
 import SwiftUI
 
 struct EpicycleView: View {
@@ -49,7 +51,8 @@ struct EpicycleView: View {
                             lastPoint = currentPoint
                         }
                     }
-                    context.stroke(tracePath, with: .color(.yellow), lineWidth: 2)
+                    // Added rounded line join/cap for ultimate smoothness
+                    context.stroke(tracePath, with: .color(.yellow), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
                 }
                 
                 // 2. Draw the Epicycles (Circles & Arms)

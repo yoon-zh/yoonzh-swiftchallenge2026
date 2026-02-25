@@ -1,3 +1,4 @@
+// MyApp.swift
 import SwiftUI
 
 @main
@@ -8,14 +9,3 @@ struct MyApp: App {
         }
     }
 }
-
-/*
-// Preview Provider
-struct FourierSketchpadView_Previews: PreviewProvider {
-    static var previews: some View {
-        FourierSketchpadView()
-            .previewInterfaceOrientation(.landscapeLeft)
-    }
-}
-
-*/

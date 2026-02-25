@@ -1,128 +1,142 @@
+// ContentView.swift
 import SwiftUI
 
 struct FourierSketchpadView: View {
-    // STATE UPDATE: We now hold an array of strokes (Visual)
-    // Each "Stroke" is an array of CGPoints
     @State private var finishedStrokes: [[CGPoint]] = []
-    @State private var currentStroke: [CGPoint] = [] // The stroke currently being drawn
+    @State private var currentStroke: [CGPoint] = []
     
-    // OUTPUT STATE
     @State private var computedEpicycles: [Epicycle] = []
     @State private var computedTrace: [CGPoint] = []
     
+    // NEW: State for the Info Alert
+    @State private var showInfo = false
+    
     var body: some View {
-        HStack(spacing: 20) {
+        ZStack(alignment: .topLeading) {
             
-            // LEFT PANEL: Input
-            VStack {
-                Text("Input: Draw & Lift Finger")
-                    .font(.headline)
-                    .foregroundColor(.secondary)
-                
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(UIColor.secondarySystemBackground))
-                        .shadow(radius: 5)
+            // MAIN CONTENT
+            HStack(spacing: 20) {
+                // LEFT PANEL: Input
+                VStack {
+                    Text("Input: Draw & Lift Finger")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
                     
-                    // LAYER 1: Finished Strokes (Previous lines)
-                    ForEach(0..<finishedStrokes.count, id: \.self) { index in
-                        DrawStroke(points: finishedStrokes[index])
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(UIColor.secondarySystemBackground))
+                            .shadow(radius: 5)
+                        
+                        ForEach(0..<finishedStrokes.count, id: \.self) { index in
+                            DrawStroke(points: finishedStrokes[index])
+                                .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                        }
+                        
+                        DrawStroke(points: currentStroke)
                             .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                        
+                        // NEW: GeometryReader limits drawing strictly to the box frame
+                        GeometryReader { geo in
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .gesture(
+                                    DragGesture(minimumDistance: 0)
+                                        .onChanged { value in
+                                            // BOUNDARY CHECK
+                                            if geo.frame(in: .local).contains(value.location) {
+                                                currentStroke.append(value.location)
+                                            }
+                                        }
+                                        .onEnded { _ in
+                                            if !currentStroke.isEmpty {
+                                                finishedStrokes.append(currentStroke)
+                                                currentStroke = []
+                                            }
+                                            processSignal()
+                                        }
+                                )
+                        }
+                        .clipped()
                     }
+                    .aspectRatio(1.0, contentMode: .fit)
+                    .padding()
                     
-                    // LAYER 2: Current Stroke (Live drawing)
-                    DrawStroke(points: currentStroke)
-                        .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                    
-                    // GESTURE LAYER
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { value in
-                                    // Append points to the CURRENT stroke only
-                                    currentStroke.append(value.location)
-                                }
-                                .onEnded { _ in
-                                    // 1. Move current stroke to finished storage
-                                    if !currentStroke.isEmpty {
-                                        finishedStrokes.append(currentStroke)
-                                        currentStroke = []
-                                    }
-                                    
-                                    // 2. Trigger Math
-                                    // We need to pass ALL points combined for the math
-                                    processSignal()
-                                }
-                        )
-                        .clipped() // Keeps the gesture inside the box
+                    Button(action: {
+                        finishedStrokes = []
+                        currentStroke = []
+                        computedEpicycles = []
+                        computedTrace = []
+                    }) {
+                        Label("Clear Canvas", systemImage: "trash")
+                            .foregroundColor(.red)
+                    }
                 }
-                .aspectRatio(1.0, contentMode: .fit)
-                .padding()
                 
-                Button(action: {
-                    // Clear everything
-                    finishedStrokes = []
-                    currentStroke = []
-                    computedEpicycles = []
-                    computedTrace = []
-                }) {
-                    Label("Clear Canvas", systemImage: "trash")
-                        .foregroundColor(.red)
+                // RIGHT PANEL: Output
+                VStack {
+                    Text("Output: Fourier Series")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(UIColor.secondarySystemBackground))
+                            .shadow(radius: 5)
+                        
+                        if computedEpicycles.isEmpty {
+                            Text("Draw something on the left!")
+                                .foregroundColor(.gray)
+                        } else {
+                            EpicycleView(epicycles: computedEpicycles, tracePoints: computedTrace)
+                        }
+                    }
+                    .aspectRatio(1.0, contentMode: .fit)
+                    .padding()
                 }
             }
+            .padding(.top, 40) // Make breathing room for the info button
+            .padding()
             
-            // RIGHT PANEL: Output (No changes here)
-            VStack {
-                Text("Output: Fourier Series")
-                    .font(.headline)
-                    .foregroundColor(.secondary)
-                
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(UIColor.secondarySystemBackground))
-                        .shadow(radius: 5)
-                    
-                    if computedEpicycles.isEmpty {
-                        Text("Draw something on the left!")
-                            .foregroundColor(.gray)
-                    } else {
-                        EpicycleView(epicycles: computedEpicycles, tracePoints: computedTrace)
-                    }
-                }
-                .aspectRatio(1.0, contentMode: .fit)
-                .padding()
+            // NEW: Info Button pinned to top left
+            Button(action: {
+                showInfo = true
+            }) {
+                Image(systemName: "info.circle.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(.blue)
             }
+            .padding()
         }
-        .padding()
+        // NEW: Info Alert
+        .alert("How it Works", isPresented: $showInfo) {
+            Button("Got it!", role: .cancel) { }
+        } message: {
+            Text("Draw a shape in the left panel. The app calculates the Discrete Fourier Transform of your path and uses rotating epicycles to redraw it on the right.")
+        }
     }
     
     func processSignal() {
-        // 1. Center logic needs to handle the nested array structure
         let allPoints = finishedStrokes.flatMap { $0 }
         guard allPoints.count > 1 else { return }
         
         let centerX = allPoints.map { $0.x }.reduce(0, +) / CGFloat(allPoints.count)
         let centerY = allPoints.map { $0.y }.reduce(0, +) / CGFloat(allPoints.count)
         
-        // Create centered strokes
         let centeredStrokes = finishedStrokes.map { stroke in
             stroke.map { CGPoint(x: $0.x - centerX, y: $0.y - centerY) }
         }
         
-        // 2. Run Math (Passing STROKES, not flat points)
-        // This uses the new gap-skipping logic
-        let rawEpicycles = FourierCalculator.computeEpicycles(from: centeredStrokes, sampleCount: 256)
+        // SMOOTHING FIX: Increased sampleCount to 512 for higher FFT accuracy
+        let rawEpicycles = FourierCalculator.computeEpicycles(from: centeredStrokes, sampleCount: 512)
         
-        // 3. Trace
-        let trace = FourierCalculator.reconstructPath(from: rawEpicycles, sampleCount: 500)
+        // SMOOTHING FIX: Increased sampleCount to 2000 for a much smoother reconstructed line
+        let trace = FourierCalculator.reconstructPath(from: rawEpicycles, sampleCount: 2000)
         
         self.computedEpicycles = rawEpicycles
         self.computedTrace = trace
     }
 }
 
-// UPDATE: Renamed to 'DrawStroke' and simplified
 struct DrawStroke: Shape {
     var points: [CGPoint]
     
@@ -130,34 +144,10 @@ struct DrawStroke: Shape {
         var path = Path()
         guard let firstPoint = points.first else { return path }
         
-        // Start a new subpath for this stroke
         path.move(to: firstPoint)
-        
-        // Connect the dots
         for point in points.dropFirst() {
             path.addLine(to: point)
         }
         return path
     }
 }
-
-/*
- struct ContentView: View {
- @State var text: String = "default"
- 
- var body: some View {
- VStack {
- Image(systemName: "globe")
- .imageScale(.large)
- .foregroundColor(.accentColor)
- Text(text)
- 
- Button("Hello") {
- text = "todo"
- }
- 
- }
- }
- }
- */
-
