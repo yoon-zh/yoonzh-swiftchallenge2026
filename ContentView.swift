@@ -226,6 +226,54 @@ struct FourierSketchpadView: View {
         
         activeTrace = FourierCalculator.reconstructPath(from: activeEpicycles, sampleCount: 512)
     }
+
+    // MARK: - Foundation Model Integration
+    func generateShapeFromText(query: String) async {
+        isGenerating = true
+        
+        // 1. CALL YOUR FOUNDATION MODEL HERE
+        // Example: let response = await myLanguageModel.generate("Extract the shape intent from: \(query)")
+        let detectedIntent = query.lowercased() // Mocking the LLM intent extraction
+        
+        // 2. GENERATE POINTS BASED ON INTENT
+        var newStroke: [CGPoint] = []
+        let center = CGPoint(x: 150, y: 150) // Adjust based on your canvas
+        let sampleCount = 100
+        
+        switch detectedIntent {
+        case "heart":
+            // Parametric Heart
+            for i in 0..<sampleCount {
+                let t = (Double(i) / Double(sampleCount)) * 2.0 * .pi
+                let x = 16 * pow(sin(t), 3)
+                let y = -(13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t))
+                
+                // Scale and translate
+                newStroke.append(CGPoint(x: (x * 5) + center.x, y: (y * 5) + center.y))
+            }
+        case "sine":
+            // Sine Wave
+            for i in 0..<sampleCount {
+                let t = (Double(i) / Double(sampleCount)) * 4.0 * .pi
+                let x = Double(i) * 2.5
+                let y = sin(t) * 50
+                newStroke.append(CGPoint(x: x + 50, y: y + center.y))
+            }
+        // Add more shapes...
+        default:
+            print("Model generated unrecognized shape")
+        }
+        
+        // 3. INJECT INTO YOUR PIPELINE
+        await MainActor.run {
+            if !newStroke.isEmpty {
+                self.finishedStrokes = [newStroke] // Replace or append
+                self.processSignal() // Triggers the FFT!
+            }
+            self.isGenerating = false
+            self.textInput = ""
+        }
+    }
 }
 
 struct DrawStroke: Shape {
@@ -240,53 +288,5 @@ struct DrawStroke: Shape {
             path.addLine(to: point)
         }
         return path
-    }
-}
-
-// MARK: - Foundation Model Integration
-func generateShapeFromText(query: String) async {
-    isGenerating = true
-    
-    // 1. CALL YOUR FOUNDATION MODEL HERE
-    // Example: let response = await myLanguageModel.generate("Extract the shape intent from: \(query)")
-    let detectedIntent = query.lowercased() // Mocking the LLM intent extraction
-    
-    // 2. GENERATE POINTS BASED ON INTENT
-    var newStroke: [CGPoint] = []
-    let center = CGPoint(x: 150, y: 150) // Adjust based on your canvas
-    let sampleCount = 100
-    
-    switch detectedIntent {
-    case "heart":
-        // Parametric Heart
-        for i in 0..<sampleCount {
-            let t = (Double(i) / Double(sampleCount)) * 2.0 * .pi
-            let x = 16 * pow(sin(t), 3)
-            let y = -(13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t))
-            
-            // Scale and translate
-            newStroke.append(CGPoint(x: (x * 5) + center.x, y: (y * 5) + center.y))
-        }
-    case "sine":
-        // Sine Wave
-        for i in 0..<sampleCount {
-            let t = (Double(i) / Double(sampleCount)) * 4.0 * .pi
-            let x = Double(i) * 2.5
-            let y = sin(t) * 50
-            newStroke.append(CGPoint(x: x + 50, y: y + center.y))
-        }
-    // Add more shapes...
-    default:
-        print("Model generated unrecognized shape")
-    }
-    
-    // 3. INJECT INTO YOUR PIPELINE
-    await MainActor.run {
-        if !newStroke.isEmpty {
-            self.finishedStrokes = [newStroke] // Replace or append
-            self.processSignal() // Triggers the FFT!
-        }
-        self.isGenerating = false
-        self.textInput = ""
     }
 }
