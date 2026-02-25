@@ -1,21 +1,30 @@
 // ContentView.swift
 import SwiftUI
+import Charts
 
 struct FourierSketchpadView: View {
     @State private var finishedStrokes: [[CGPoint]] = []
     @State private var currentStroke: [CGPoint] = []
-    
+
+    // The raw math output
     @State private var computedEpicycles: [Epicycle] = []
-    @State private var computedTrace: [CGPoint] = []
     
-    // NEW: State for the Info Alert
+    // NEW: The filtered output passed to the UI
+    @State private var activeEpicycles: [Epicycle] = []
+    @State private var activeTrace: [CGPoint] = []
+    
     @State private var showInfo = false
     
+    // NEW: Drawer State
+    @State private var showDrawer = false
+    @State private var smoothness: Double = 1.0 // 1.0 = Keep all circles
+    
     var body: some View {
-        ZStack(alignment: .topLeading) {
+        ZStack(alignment: .top) {
             
-            // MAIN CONTENT
-            HStack(spacing: 20) {
+            HStack(spacing: 0) {
+                // MAIN CANVAS AREA
+                HStack(spacing: 20) {
                 // LEFT PANEL: Input
                 VStack {
                     Text("Input: Draw & Lift Finger")
@@ -79,45 +88,67 @@ struct FourierSketchpadView: View {
                 }
                 
                 // RIGHT PANEL: Output
-                VStack {
-                    Text("Output: Fourier Series")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                    
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color(UIColor.secondarySystemBackground))
-                            .shadow(radius: 5)
+                    VStack {
+                        Text("Output: Fourier Series")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
                         
-                        if computedEpicycles.isEmpty {
-                            Text("Draw something on the left!")
-                                .foregroundColor(.gray)
-                        } else {
-                            EpicycleView(epicycles: computedEpicycles, tracePoints: computedTrace)
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color(UIColor.secondarySystemBackground))
+                                .shadow(radius: 5)
+                            
+                            if activeEpicycles.isEmpty {
+                                Text("Draw something on the left!")
+                                    .foregroundColor(.gray)
+                            } else {
+                                // NEW: Pass the filtered arrays instead
+                                EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace)
+                            }
                         }
+                        .aspectRatio(1.0, contentMode: .fit)
+                        .padding()
                     }
-                    .aspectRatio(1.0, contentMode: .fit)
-                    .padding()
                 }
-            }
-            .padding(.top, 40) // Make breathing room for the info button
-            .padding()
+                .padding(.top, 40)
+                .padding()
+
+                // NEW: THE SLIDE-OUT DRAWER
+                if showDrawer {
+                    AnalysisDrawerView(epicycles: computedEpicycles, smoothness: $smoothness)
+                        .frame(width: 320)
+                        .transition(.move(edge: .trailing))
+                }
             
-            // NEW: Info Button pinned to top left
-            Button(action: {
-                showInfo = true
-            }) {
-                Image(systemName: "info.circle.fill")
-                    .font(.system(size: 28))
-                    .foregroundColor(.blue)
+           // TOP BUTTONS
+            HStack {
+                Button(action: { showInfo = true }) {
+                    Image(systemName: "info.circle.fill")
+                        .font(.system(size: 28))
+                        .foregroundColor(.blue)
+                }
+                Spacer()
+                // NEW: Drawer Toggle Button
+                Button(action: {
+                    withAnimation(.spring()) {
+                        showDrawer.toggle()
+                    }
+                }) {
+                    Image(systemName: showDrawer ? "chart.bar.xaxis.chevron.down" : "chart.bar.xaxis")
+                        .font(.system(size: 28))
+                        .foregroundColor(.blue)
+                }
             }
             .padding()
         }
-        // NEW: Info Alert
         .alert("How it Works", isPresented: $showInfo) {
             Button("Got it!", role: .cancel) { }
         } message: {
-            Text("Draw a shape in the left panel. The app calculates the Discrete Fourier Transform of your path and uses rotating epicycles to redraw it on the right.")
+            Text("Draw any shape on the left. The app breaks your drawing down into a chain of spinning circles, which work together to perfectly redraw your shape on the right.")
+        }
+        // NEW: Recalculate the line when the slider moves
+        .onChange(of: smoothness) { _ in
+            applyFilter()
         }
     }
     
@@ -132,14 +163,23 @@ struct FourierSketchpadView: View {
             stroke.map { CGPoint(x: $0.x - centerX, y: $0.y - centerY) }
         }
         
-        // SMOOTHING FIX: Increased sampleCount to 512 for higher FFT accuracy
-        let rawEpicycles = FourierCalculator.computeEpicycles(from: centeredStrokes, sampleCount: 512)
+        self.computedEpicycles = FourierCalculator.computeEpicycles(from: centeredStrokes, sampleCount: 512)
+        applyFilter() // NEW: Apply the slider value immediately
+    }
+
+    // NEW: Filter logic for the slider
+    func applyFilter() {
+        guard !computedEpicycles.isEmpty else {
+            activeEpicycles = []
+            activeTrace = []
+            return
+        }
+        // Slice the array based on the percentage (1.0 = all, 0.1 = top 10%)
+        let keepCount = max(1, Int(Double(computedEpicycles.count) * smoothness))
+        activeEpicycles = Array(computedEpicycles.prefix(keepCount))
         
-        // SMOOTHING FIX: Increased sampleCount to 2000 for a much smoother reconstructed line
-        let trace = FourierCalculator.reconstructPath(from: rawEpicycles, sampleCount: 512)
-        
-        self.computedEpicycles = rawEpicycles
-        self.computedTrace = trace
+        // Reconstruct only the filtered path
+        activeTrace = FourierCalculator.reconstructPath(from: activeEpicycles, sampleCount: 512)
     }
 }
 
