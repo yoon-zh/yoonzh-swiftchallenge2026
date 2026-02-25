@@ -25,34 +25,12 @@ struct FourierSketchpadView: View {
     // Foundation models text input
     @State private var textInput: String = ""
     @State private var isGenerating: Bool = false
+    @State private var showTextInput: Bool = false
     
     var body: some View {
         ZStack(alignment: .top) {
             
             HStack(spacing: 0) {
-                // Text input
-                HStack {
-                    TextField("Type a shape (e.g., 'heart', 'star', 'sine')", text: $textInput)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding(.leading)
-                    
-                    Button(action: {
-                        Task {
-                            await generateShapeFromText(query: textInput)
-                        }
-                    }) {
-                        if isGenerating {
-                            ProgressView().padding(.trailing)
-                        } else {
-                            Image(systemName: "wand.and.stars")
-                                .font(.title2)
-                                .foregroundColor(.purple)
-                                .padding(.trailing)
-                        }
-                    }
-                }
-                .padding(.top, 10)
-
                 // MAIN CANVAS AREA
                 HStack(spacing: 20) {
                     // LEFT PANEL: Input
@@ -176,6 +154,64 @@ struct FourierSketchpadView: View {
             }
             .padding()
             
+            // 3. NEW: FLOATING BOTTOM-LEFT CONTROLS
+            VStack {
+                Spacer() // Pushes everything to the bottom
+                
+                HStack(alignment: .bottom, spacing: 16) {
+                    // The Toggle Button
+                    Button(action: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                            showTextInput.toggle()
+                            if !showTextInput { textInput = "" } // Clear on close
+                        }
+                    }) {
+                        Image(systemName: "wand.and.stars")
+                            .font(.system(size: 24))
+                            .foregroundColor(.white)
+                            .padding(16)
+                            .background(Color.purple)
+                            .clipShape(Circle())
+                            .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
+                    }
+                    
+                    // The Floating Text Input Bar
+                    if showTextInput {
+                        HStack {
+                            TextField("Type a shape (e.g., 'heart', 'cube')", text: $textInput)
+                                .textFieldStyle(.plain)
+                                .padding(.vertical, 8)
+                                .onSubmit {
+                                    Task { await generateShapeFromText(query: textInput) }
+                                }
+                            
+                            Button(action: {
+                                Task { await generateShapeFromText(query: textInput) }
+                            }) {
+                                if isGenerating {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .purple))
+                                } else {
+                                    Image(systemName: "arrow.up.circle.fill")
+                                        .font(.system(size: 28))
+                                        .foregroundColor(textInput.isEmpty ? .gray : .purple)
+                                }
+                            }
+                            .disabled(textInput.isEmpty || isGenerating)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color(UIColor.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 24))
+                        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
+                        .frame(width: 320)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                    }
+                    
+                    Spacer() // Pushes the controls to the left
+                }
+                .padding(24) // Outer padding from the screen edges
+            }
         }
         .alert("How it Works", isPresented: $showInfo) {
             Button("Got it!", role: .cancel) { }
