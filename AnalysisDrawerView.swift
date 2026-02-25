@@ -1,4 +1,7 @@
 // AnalysisDrawerView.swift
+import SwiftUI
+import Charts
+
 struct AnalysisDrawerView: View {
     let epicycles: [Epicycle]
     @Binding var smoothness: Double
