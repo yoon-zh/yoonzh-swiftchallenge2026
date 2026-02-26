@@ -4,6 +4,7 @@ import Charts
 import FoundationModels
 import Vision
 import PhotosUI
+import CoreImage.CIFilterBuiltins
 
 @available(iOS 26.0, *)
 struct FourierSketchpadView: View {
@@ -410,69 +411,94 @@ struct FourierSketchpadView: View {
         }
     }
     
-    func processImageWithVision(image: UIImage) async throws {
-        return try await withCheckedThrowingContinuation({ continuation in
-            guard let resizedImage = image.resized(to: 1024),
-                  let cgImage = resizedImage.cgImage else {
-                print("Failed to resize or get CGImage")
+    func processImageWithVision(image: UIImage) {
+    guard let resizedImage = image.resized(to: 1024),
+          let cgImage = resizedImage.cgImage else { 
+        print("Failed to resize or get CGImage")
+        return 
+    }
+    
+    isProcessingImage = true
+    let orientation = CGImagePropertyOrientation(resizedImage.imageOrientation)
+    
+    DispatchQueue.global(qos: .userInitiated).async {
+        // Ensure we always turn off the loading state when done
+        defer { DispatchQueue.main.async { isProcessingImage = false } }
+        
+        do {
+            // MARK: - Step 1: Lift the Subject
+            let subjectRequest = VNGenerateForegroundInstanceMaskRequest()
+            let initialHandler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation, options: [:])
+            try initialHandler.perform([subjectRequest])
+            
+            guard let subjectObservation = subjectRequest.results?.first else {
+                print("No foreground subject found.")
                 return
             }
             
-            isProcessingImage = true
+            // Extract the mask using the initial handler
+            let instances = subjectObservation.allInstances
+            let maskBuffer = try subjectObservation.generateScaledMaskForImage(forInstances: instances, from: initialHandler)
             
-            // 2. Convert UIImage orientation (using the RESIZED image orientation)
-            let orientation = CGImagePropertyOrientation(resizedImage.imageOrientation)
+            // MARK: - Step 2: Apply the Mask (Make background white)
+            let ciImage = CIImage(cgImage: cgImage)
+            let maskImage = CIImage(cvPixelBuffer: maskBuffer)
             
-            let request = VNDetectContoursRequest { (request, error) in
-                defer { DispatchQueue.main.async { isProcessingImage = false } }
-                
-                guard let results = request.results as? [VNContoursObservation],
-                    let observation = results.first else {
-                    print("No shapes found in image")
-                    return
+            let blendFilter = CIFilter.blendWithMask()
+            blendFilter.inputImage = ciImage
+            blendFilter.maskImage = maskImage
+            // Use a clean white background so the contour detection easily finds the edges
+            blendFilter.backgroundImage = CIImage(color: .white).cropped(to: ciImage.extent)
+            
+            let context = CIContext()
+            guard let blendedCI = blendFilter.outputImage,
+                  let maskedCGImage = context.createCGImage(blendedCI, from: blendedCI.extent) else {
+                print("Failed to create masked image.")
+                return
+            }
+            
+            // MARK: - Step 3: Run Contour Detection on the Isolated Subject
+            let contourRequest = VNDetectContoursRequest()
+            contourRequest.contrastAdjustment = 2.0
+            contourRequest.detectsDarkOnLight = true
+            
+            // Note: We don't need to pass orientation here because the maskedCGImage is already correctly oriented
+            let finalHandler = VNImageRequestHandler(cgImage: maskedCGImage, options: [:])
+            try finalHandler.perform([contourRequest])
+            
+            guard let results = contourRequest.results as? [VNContoursObservation],
+                  let observation = results.first else {
+                print("No contours found on isolated subject.")
+                return
+            }
+            
+            var allExtractedStrokes: [[CGPoint]] = []
+            
+            for contour in observation.topLevelContours {
+                var extractedPoints: [CGPoint] = []
+                for point in contour.normalizedPoints {
+                    let flippedY = 1.0 - Double(point.y)
+                    extractedPoints.append(CGPoint(x: Double(point.x) * 1000.0, y: flippedY * 1000.0))
                 }
-                
-                var allExtractedStrokes: [[CGPoint]] = []
-                
-                // 1. Loop through ALL top-level contours instead of just the first one
-                for contour in observation.topLevelContours {
-                    var extractedPoints: [CGPoint] = []
-                    for point in contour.normalizedPoints {
-                        // Flip Y to match SwiftUI coordinates
-                        let flippedY = 1.0 - Double(point.y)
-                        extractedPoints.append(CGPoint(x: Double(point.x) * 1000.0, y: flippedY * 1000.0))
-                    }
-                    
-                    // 2. Only add it if it's an actual line (more than 1 point)
-                    if extractedPoints.count > 1 {
-                        allExtractedStrokes.append(extractedPoints)
-                    }
-                }
-                
-                DispatchQueue.main.async {
-                    // 3. Normalize all strokes together so they don't pile up on top of each other
-                    let fittedStrokes = self.normalizeGroup(strokes: allExtractedStrokes, toFit: CGSize(width: 300, height: 300))
-                    if !fittedStrokes.isEmpty {
-                        self.finishedStrokes = fittedStrokes
-                        self.processSignal()
-                    }
+                if extractedPoints.count > 1 {
+                    allExtractedStrokes.append(extractedPoints)
                 }
             }
             
-            request.contrastAdjustment = 2.0
-            request.detectsDarkOnLight = true
-            
-            // NEW: We pass the orientation here!
-            let handler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation, options: [:])
-            
-            do {
-                try handler.perform([request])
-            } catch {
-                print("Vision failed: \(error.localizedDescription)")
-                continuation.resume(throwing: error)
+            // MARK: - Step 4: Pass to UI
+            DispatchQueue.main.async {
+                let fittedStrokes = self.normalizeGroup(strokes: allExtractedStrokes, toFit: CGSize(width: 300, height: 300))
+                if !fittedStrokes.isEmpty {
+                    self.finishedStrokes = fittedStrokes
+                    self.processSignal()
+                }
             }
-        })
+            
+        } catch {
+            print("Vision pipeline failed: \(error.localizedDescription)")
+        }
     }
+}
 }
 
 // Helper to convert orientations
