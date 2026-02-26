@@ -115,31 +115,24 @@ struct FourierSketchpadView: View {
                         
                         ZStack {
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(Color(UIColor.secondarySystemBackground))
-                                .shadow(radius: 5)
-                                .overlay(
-                                    Group {
-                                        if activeEpicycles.isEmpty {
-                                            Text("Draw something on the left!")
-                                                .foregroundColor(.gray)
-                                        } else {
-                                            EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace)
-                                        }
+                            .fill(Color(UIColor.secondarySystemBackground))
+                            .shadow(radius: 5)
+                            .overlay(
+                                Group {
+                                    if activeEpicycles.isEmpty {
+                                        Text("Draw something on the left!")
+                                            .foregroundColor(.gray)
+                                    } else {
+                                        EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace)
                                     }
-                                    .clipShape(RoundedRectangle(cornerRadius: 16)) // Prevents visual overflow
-                                )
-                                .aspectRatio(1.0, contentMode: .fit)
-                                .padding()
-                            
-                            if activeEpicycles.isEmpty {
-                                Text("Draw something on the left!")
-                                    .foregroundColor(.gray)
-                            } else {
-                                EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace)
-                            }
+                                }
+                                .clipShape(RoundedRectangle(cornerRadius: 16)) // Prevents visual overflow
+                            )
+                            .aspectRatio(1.0, contentMode: .fit)
+                            .padding()
                         }
-                        .aspectRatio(1.0, contentMode: .fit)
-                        .padding()
+                        // .aspectRatio(1.0, contentMode: .fit)
+                        // .padding()
                     }
                 }
                 .padding(.top, 40)
