@@ -106,6 +106,7 @@ struct FourierSketchpadView: View {
                                 .foregroundColor(.red)
                         }
                     }
+                    .frame(maxWidth: .infinity)
                     
                     // RIGHT PANEL: Output
                     VStack {
@@ -131,9 +132,8 @@ struct FourierSketchpadView: View {
                             .aspectRatio(1.0, contentMode: .fit)
                             .padding()
                         }
-                        // .aspectRatio(1.0, contentMode: .fit)
-                        // .padding()
                     }
+                    .frame(maxWidth: .infinity)
                 }
                 .padding(.top, 40)
                 .padding()
