@@ -42,7 +42,13 @@ struct FourierSketchpadView: View {
 
     // Canvas size
     @State private var canvasSize: CGSize = CGSize(width: 300, height: 300)
+    @State private var baseCanvasSize: CGSize = .zero
     
+    var drawingScale: CGFloat {
+        guard baseCanvasSize.width > 0, canvasSize.width > 0 else { return 1.0 }
+        return canvasSize.width / baseCanvasSize.width
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             
@@ -55,7 +61,6 @@ struct FourierSketchpadView: View {
                             .font(.headline)
                             .foregroundColor(.secondary)
                         
-                        // 1. The Color.clear acts as a strict structural skeleton
                         Color.clear
                             .aspectRatio(1.0, contentMode: .fit)
                             .background(
@@ -67,11 +72,11 @@ struct FourierSketchpadView: View {
                                 GeometryReader { geo in
                                     ZStack {
                                         ForEach(0..<finishedStrokes.count, id: \.self) { index in
-                                            DrawStroke(points: finishedStrokes[index])
+                                            DrawStroke(points: finishedStrokes[index], scale: drawingScale)
                                                 .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
                                         }
                                         
-                                        DrawStroke(points: currentStroke)
+                                        DrawStroke(points: currentStroke, scale: drawingScale)
                                             .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
                                         
                                         Color.clear
@@ -79,10 +84,9 @@ struct FourierSketchpadView: View {
                                             .gesture(
                                             DragGesture(minimumDistance: 0)
                                                 .onChanged { value in
-                                                    // 2. LOGICAL FIX: Clamp coordinates so math doesn't record off-canvas points
-                                                    let clampedX = max(0, min(value.location.x, geo.size.width))
-                                                    let clampedY = max(0, min(value.location.y, geo.size.height))
-                                                    currentStroke.append(CGPoint(x: clampedX, y: clampedY))
+                                                    let unscaledX = max(0, min(value.location.x, geo.size.width)) / drawingScale
+                                                    let unscaledY = max(0, min(value.location.y, geo.size.height)) / drawingScale
+                                                    currentStroke.append(CGPoint(x: unscaledX, y: unscaledY))
                                                 }
                                                 .onEnded { _ in
                                                     if !currentStroke.isEmpty {
@@ -93,13 +97,15 @@ struct FourierSketchpadView: View {
                                                 }
                                             )
                                         }
-                                    .onAppear { canvasSize = geo.size }
+                                    .onAppear { 
+                                        if baseCanvasSize == .zero { baseCanvasSize = geo.size }
+                                        canvasSize = geo.size 
+                                    }
                                     .onChange(of: geo.size) { newSize in canvasSize = newSize }
                                 }
                             )
-                            .clipShape(RoundedRectangle(cornerRadius: 16)) // 3. VISUAL FIX: Strictly cut off any overflowing drawing
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
                         
-                        // Clear Canvas Button
                         Button(action: {
                             finishedStrokes = []
                             currentStroke = []
@@ -107,10 +113,10 @@ struct FourierSketchpadView: View {
                             activeEpicycles = []
                             activeTrace = []
                         }) {
-                            Label("Clear Canvas", systemImage: "trash")
-                                .foregroundColor(.red)
+                            Label("Clear Canvas", systemImage: "trash").foregroundColor(.red)
                         }
                     }
+                    .frame(maxWidth: .infinity)
                     
                     // RIGHT PANEL: Output
                     VStack {
@@ -118,7 +124,6 @@ struct FourierSketchpadView: View {
                             .font(.headline)
                             .foregroundColor(.secondary)
                         
-                        // 1. Use the same structural skeleton for the output side
                         Color.clear
                             .aspectRatio(1.0, contentMode: .fit)
                             .background(
@@ -129,15 +134,15 @@ struct FourierSketchpadView: View {
                             .overlay(
                                 Group {
                                     if activeEpicycles.isEmpty {
-                                        Text("Draw something on the left!")
-                                            .foregroundColor(.gray)
+                                        Text("Draw something on the left!").foregroundColor(.gray)
                                     } else {
-                                        EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace)
+                                        EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace, scale: drawingScale)
                                     }
                                 }
                             )
-                            .clipShape(RoundedRectangle(cornerRadius: 16)) // Ensures epicycles don't overflow visually
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
                     }
+                    .frame(maxWidth: .infinity)
                 }
                 .padding(.top, 40)
                 .padding()
