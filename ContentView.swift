@@ -39,6 +39,9 @@ struct FourierSketchpadView: View {
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var isProcessingImage: Bool = false
     @State private var showCameraSheet = false
+
+    // Canvas size
+    @State private var canvasSize: CGSize = CGSize(width: 300, height: 300)
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -57,20 +60,19 @@ struct FourierSketchpadView: View {
                             .fill(Color(UIColor.secondarySystemBackground))
                             .shadow(radius: 5)
                             .overlay(
-                                // Everything inside this overlay is contained perfectly
-                                ZStack {
-                                    ForEach(0..<finishedStrokes.count, id: \.self) { index in
-                                        DrawStroke(points: finishedStrokes[index])
+                                GeometryReader { geo in
+                                    ZStack {
+                                        ForEach(0..<finishedStrokes.count, id: \.self) { index in
+                                            DrawStroke(points: finishedStrokes[index])
+                                                .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                                        }
+                                        
+                                        DrawStroke(points: currentStroke)
                                             .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                                    }
-                                    
-                                    DrawStroke(points: currentStroke)
-                                        .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                                    
-                                    // The gesture capture
-                                    Color.clear
-                                        .contentShape(Rectangle())
-                                        .gesture(
+                                        
+                                        Color.clear
+                                            .contentShape(Rectangle())
+                                            .gesture(
                                             DragGesture(minimumDistance: 0)
                                                 .onChanged { value in
                                                     currentStroke.append(value.location)
@@ -82,9 +84,12 @@ struct FourierSketchpadView: View {
                                                     }
                                                     processSignal()
                                                 }
-                                        )
+                                            )
+                                        }
+                                    .onAppear { canvasSize = geo.size }
+                                    .onChange(of: geo.size) { newSize in canvasSize = newSize }
                                 }
-                                .clipShape(RoundedRectangle(cornerRadius: 16)) // Strict clip
+                                .clipShape(RoundedRectangle(cornerRadius: 16)) // Prevents visual overflow
                             )
                             .aspectRatio(1.0, contentMode: .fit)
                             .padding()
@@ -112,6 +117,19 @@ struct FourierSketchpadView: View {
                             RoundedRectangle(cornerRadius: 16)
                                 .fill(Color(UIColor.secondarySystemBackground))
                                 .shadow(radius: 5)
+                                .overlay(
+                                    Group {
+                                        if activeEpicycles.isEmpty {
+                                            Text("Draw something on the left!")
+                                                .foregroundColor(.gray)
+                                        } else {
+                                            EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace)
+                                        }
+                                    }
+                                    .clipShape(RoundedRectangle(cornerRadius: 16)) // Prevents visual overflow
+                                )
+                                .aspectRatio(1.0, contentMode: .fit)
+                                .padding()
                             
                             if activeEpicycles.isEmpty {
                                 Text("Draw something on the left!")
@@ -267,6 +285,8 @@ struct FourierSketchpadView: View {
                     .ignoresSafeArea() // Ensures the camera fills the screen properly
                 }
                 .padding(24) // Outer padding from the screen edges
+                .opacity(showDrawer ? 0.0 : 1.0) // Hides buttons when drawer is open
+                .animation(.easeInOut, value: showDrawer)
             }
         }
         .alert("How it Works", isPresented: $showInfo) {
@@ -457,7 +477,7 @@ struct FourierSketchpadView: View {
                 }
                 
                 DispatchQueue.main.async {
-                    let fittedStrokes = self.normalizeGroup(strokes: allExtractedStrokes, toFit: CGSize(width: 300, height: 300))
+                    let fittedStrokes = self.normalizeGroup(strokes: allExtractedStrokes, toFit: self.canvasSize)
                     if !fittedStrokes.isEmpty {
                         self.finishedStrokes = fittedStrokes
                         self.processSignal()
