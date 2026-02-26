@@ -37,6 +37,7 @@ struct FourierSketchpadView: View {
     // Photo picker
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var isProcessingImage: Bool = false
+    @State private var showCameraSheet = false
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -170,7 +171,8 @@ struct FourierSketchpadView: View {
                 Spacer() // Pushes everything to the bottom
                 
                 HStack(alignment: .bottom, spacing: 16) {
-                    // The Toggle Button
+
+                    // 1. Text Input Toggle (Magic Wand)
                     Button(action: {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
                             showTextInput.toggle()
@@ -224,9 +226,20 @@ struct FourierSketchpadView: View {
                     
                     Spacer() // Pushes the controls to the left
 
-                    // NEW: The Photo Picker Button
+                    // 2. Camera Button
+                    Button(action: { showCameraSheet = true }) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(.white)
+                            .padding(16)
+                            .background(Color.green)
+                            .clipShape(Circle())
+                            .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
+                    }
+
+                    // 3. Photo Library Button
                     PhotosPicker(selection: $selectedPhotoItem, matching: .images, photoLibrary: .shared()) {
-                        Image(systemName: "photo.stack")
+                        Image(systemName: "photo.fill")
                             .font(.system(size: 24))
                             .foregroundColor(.white)
                             .padding(16)
@@ -234,7 +247,6 @@ struct FourierSketchpadView: View {
                             .clipShape(Circle())
                             .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
                     }
-                    // When the user selects a photo, process it
                     .onChange(of: selectedPhotoItem) { newItem in
                         Task {
                             if let data = try? await newItem?.loadTransferable(type: Data.self),
@@ -243,6 +255,17 @@ struct FourierSketchpadView: View {
                             }
                         }
                     }
+
+                // Present the Camera Picker
+                .sheet(isPresented: $showCameraSheet) {
+                    CameraPicker(selectedImage: Binding(
+                        get: { nil },
+                        set: { newImage in
+                            if let newImage = newImage {
+                                processImageWithVision(image: newImage)
+                            }
+                        }
+                    ))
                 }
                 .padding(24) // Outer padding from the screen edges
             }
@@ -387,7 +410,9 @@ struct FourierSketchpadView: View {
         guard let cgImage = image.cgImage else { return }
         isProcessingImage = true
         
-        // 1. Setup the Vision Request
+        // Convert UIImage orientation to CGImagePropertyOrientation
+        let orientation = CGImagePropertyOrientation(image.imageOrientation)
+        
         let request = VNDetectContoursRequest { (request, error) in
             defer { DispatchQueue.main.async { isProcessingImage = false } }
             
@@ -400,41 +425,51 @@ struct FourierSketchpadView: View {
             
             var extractedPoints: [CGPoint] = []
             
-            // 2. Extract the points from the contour
             for point in topContour.normalizedPoints {
-                // Vision coordinates are normalized (0.0 to 1.0) 
-                // and the Y-axis is inverted (0 is at the bottom).
-                // We flip Y and scale them up arbitrarily (your `normalize` function will fix the size).
+                // Flipped Y to match SwiftUI coordinates
                 let flippedY = 1.0 - Double(point.y)
-                let x = Double(point.x) * 1000.0
-                let y = flippedY * 1000.0
-                
-                extractedPoints.append(CGPoint(x: x, y: y))
+                extractedPoints.append(CGPoint(x: Double(point.x) * 1000.0, y: flippedY * 1000.0))
             }
             
-            // 3. Inject into your pipeline on the Main Thread
             DispatchQueue.main.async {
-                // Use the normalize function we built earlier to fit it nicely in a 300x300 space
+                // Using your existing normalize function!
                 let fittedStroke = self.normalize(points: extractedPoints, toFit: CGSize(width: 300, height: 300))
-                
                 if !fittedStroke.isEmpty {
-                    self.finishedStrokes = [fittedStroke] // Replace current drawing
-                    self.processSignal() // Trigger the Math!
+                    self.finishedStrokes = [fittedStroke]
+                    self.processSignal()
                 }
             }
         }
         
-        // Boost contrast to help Vision find the edges of photos
-        request.contrastAdjustment = 2.0 
-        request.detectsDarkOnLight = true // Assumes dark shape on light background (adjust as needed)
+        request.contrastAdjustment = 2.0
+        request.detectsDarkOnLight = true
         
-        // Run the request
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        // NEW: We pass the orientation here!
+        let handler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation, options: [:])
+        
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 try handler.perform([request])
             } catch {
-                print("Vision failed: \(error)")
+                print("Vision failed: \(error.localizedDescription)")
+                DispatchQueue.main.async { isProcessingImage = false }
+            }
+        }
+    }
+
+    // Helper to convert orientations
+    extension CGImagePropertyOrientation {
+        init(_ uiOrientation: UIImage.Orientation) {
+            switch uiOrientation {
+            case .up: self = .up
+            case .upMirrored: self = .upMirrored
+            case .down: self = .down
+            case .downMirrored: self = .downMirrored
+            case .left: self = .left
+            case .leftMirrored: self = .leftMirrored
+            case .right: self = .right
+            case .rightMirrored: self = .rightMirrored
+            @unknown default: self = .up
             }
         }
     }
