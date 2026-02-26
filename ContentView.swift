@@ -52,49 +52,44 @@ struct FourierSketchpadView: View {
                             .font(.headline)
                             .foregroundColor(.secondary)
                         
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color(UIColor.secondarySystemBackground))
-                                .shadow(radius: 5)
-                            
-                            ForEach(0..<finishedStrokes.count, id: \.self) { index in
-                                DrawStroke(points: finishedStrokes[index])
-                                    .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                            }
-                            
-                            DrawStroke(points: currentStroke)
-                                .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                            
-                            GeometryReader { geo in
-                                Color.clear
-                                    .contentShape(Rectangle())
-                                    .gesture(
-                                        DragGesture(minimumDistance: 0)
-                                            .onChanged { value in
-                                                if geo.frame(in: .local).contains(value.location) {
+                        // The Background dictates the size
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(UIColor.secondarySystemBackground))
+                            .shadow(radius: 5)
+                            .overlay(
+                                // Everything inside this overlay is contained perfectly
+                                ZStack {
+                                    ForEach(0..<finishedStrokes.count, id: \.self) { index in
+                                        DrawStroke(points: finishedStrokes[index])
+                                            .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                                    }
+                                    
+                                    DrawStroke(points: currentStroke)
+                                        .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                                    
+                                    // The gesture capture
+                                    Color.clear
+                                        .contentShape(Rectangle())
+                                        .gesture(
+                                            DragGesture(minimumDistance: 0)
+                                                .onChanged { value in
                                                     currentStroke.append(value.location)
-                                                } else {
+                                                }
+                                                .onEnded { _ in
                                                     if !currentStroke.isEmpty {
                                                         finishedStrokes.append(currentStroke)
                                                         currentStroke = []
                                                     }
+                                                    processSignal()
                                                 }
-                                            }
-                                            .onEnded { _ in
-                                                if !currentStroke.isEmpty {
-                                                    finishedStrokes.append(currentStroke)
-                                                    currentStroke = []
-                                                }
-                                                processSignal()
-                                            }
-                                    )
-                            }
-                            .clipped()
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                        .aspectRatio(1.0, contentMode: .fit)
-                        .padding()
+                                        )
+                                }
+                                .clipShape(RoundedRectangle(cornerRadius: 16)) // Strict clip
+                            )
+                            .aspectRatio(1.0, contentMode: .fit)
+                            .padding()
                         
+                        // Clear Canvas Button
                         Button(action: {
                             finishedStrokes = []
                             currentStroke = []
@@ -412,93 +407,68 @@ struct FourierSketchpadView: View {
     }
     
     func processImageWithVision(image: UIImage) {
-    guard let resizedImage = image.resized(to: 1024),
-          let cgImage = resizedImage.cgImage else { 
-        print("Failed to resize or get CGImage")
-        return 
-    }
-    
-    isProcessingImage = true
-    let orientation = CGImagePropertyOrientation(resizedImage.imageOrientation)
-    
-    DispatchQueue.global(qos: .userInitiated).async {
-        // Ensure we always turn off the loading state when done
-        defer { DispatchQueue.main.async { isProcessingImage = false } }
+        guard let resizedImage = image.resized(to: 1024),
+            let cgImage = resizedImage.cgImage else { return }
         
-        do {
-            // MARK: - Step 1: Lift the Subject
-            let subjectRequest = VNGenerateForegroundInstanceMaskRequest()
-            let initialHandler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation, options: [:])
-            try initialHandler.perform([subjectRequest])
+        isProcessingImage = true
+        let orientation = CGImagePropertyOrientation(resizedImage.imageOrientation)
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            defer { DispatchQueue.main.async { isProcessingImage = false } }
             
-            guard let subjectObservation = subjectRequest.results?.first else {
-                print("No foreground subject found.")
-                return
-            }
-            
-            // Extract the mask using the initial handler
-            let instances = subjectObservation.allInstances
-            let maskBuffer = try subjectObservation.generateScaledMaskForImage(forInstances: instances, from: initialHandler)
-            
-            // MARK: - Step 2: Apply the Mask (Make background white)
-            let ciImage = CIImage(cgImage: cgImage)
-            let maskImage = CIImage(cvPixelBuffer: maskBuffer)
-            
-            let blendFilter = CIFilter.blendWithMask()
-            blendFilter.inputImage = ciImage
-            blendFilter.maskImage = maskImage
-            // Use a clean white background so the contour detection easily finds the edges
-            blendFilter.backgroundImage = CIImage(color: .white).cropped(to: ciImage.extent)
-            
-            let context = CIContext()
-            guard let blendedCI = blendFilter.outputImage,
-                  let maskedCGImage = context.createCGImage(blendedCI, from: blendedCI.extent) else {
-                print("Failed to create masked image.")
-                return
-            }
-            
-            // MARK: - Step 3: Run Contour Detection on the Isolated Subject
-            let contourRequest = VNDetectContoursRequest()
-            contourRequest.contrastAdjustment = 2.0
-            contourRequest.detectsDarkOnLight = true
-            
-            // Note: We don't need to pass orientation here because the maskedCGImage is already correctly oriented
-            let finalHandler = VNImageRequestHandler(cgImage: maskedCGImage, options: [:])
-            try finalHandler.perform([contourRequest])
-            
-            guard let results = contourRequest.results as? [VNContoursObservation],
-                  let observation = results.first else {
-                print("No contours found on isolated subject.")
-                return
-            }
-            
-            var allExtractedStrokes: [[CGPoint]] = []
-            
-            for contour in observation.topLevelContours {
-                var extractedPoints: [CGPoint] = []
-                for point in contour.normalizedPoints {
-                    let flippedY = 1.0 - Double(point.y)
-                    extractedPoints.append(CGPoint(x: Double(point.x) * 1000.0, y: flippedY * 1000.0))
+            do {
+                // Step 1: Lift the Subject
+                let subjectRequest = VNGenerateForegroundInstanceMaskRequest()
+                let handler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation, options: [:])
+                try handler.perform([subjectRequest])
+                
+                guard let subjectObservation = subjectRequest.results?.first else { return }
+                
+                // Extract the Mask (This is a pure black & white silhouette)
+                let maskBuffer = try subjectObservation.generateScaledMaskForImage(forInstances: subjectObservation.allInstances, from: handler)
+                
+                // Step 2: Convert Mask directly to CGImage
+                let ciMask = CIImage(cvPixelBuffer: maskBuffer)
+                let context = CIContext()
+                guard let maskCGImage = context.createCGImage(ciMask, from: ciMask.extent) else { return }
+                
+                // Step 3: Run Contour Detection ON THE SILHOUETTE
+                let contourRequest = VNDetectContoursRequest()
+                // The mask is white on black, so it's super easy for Vision to trace
+                contourRequest.detectsDarkOnLight = false 
+                
+                let finalHandler = VNImageRequestHandler(cgImage: maskCGImage, options: [:])
+                try finalHandler.perform([contourRequest])
+                
+                guard let results = contourRequest.results as? [VNContoursObservation],
+                    let observation = results.first else { return }
+                
+                var allExtractedStrokes: [[CGPoint]] = []
+                
+                for contour in observation.topLevelContours {
+                    var extractedPoints: [CGPoint] = []
+                    for point in contour.normalizedPoints {
+                        let flippedY = 1.0 - Double(point.y)
+                        extractedPoints.append(CGPoint(x: Double(point.x) * 1000.0, y: flippedY * 1000.0))
+                    }
+                    if extractedPoints.count > 1 {
+                        allExtractedStrokes.append(extractedPoints)
+                    }
                 }
-                if extractedPoints.count > 1 {
-                    allExtractedStrokes.append(extractedPoints)
+                
+                DispatchQueue.main.async {
+                    let fittedStrokes = self.normalizeGroup(strokes: allExtractedStrokes, toFit: CGSize(width: 300, height: 300))
+                    if !fittedStrokes.isEmpty {
+                        self.finishedStrokes = fittedStrokes
+                        self.processSignal()
+                    }
                 }
+                
+            } catch {
+                print("Vision pipeline failed: \(error.localizedDescription)")
             }
-            
-            // MARK: - Step 4: Pass to UI
-            DispatchQueue.main.async {
-                let fittedStrokes = self.normalizeGroup(strokes: allExtractedStrokes, toFit: CGSize(width: 300, height: 300))
-                if !fittedStrokes.isEmpty {
-                    self.finishedStrokes = fittedStrokes
-                    self.processSignal()
-                }
-            }
-            
-        } catch {
-            print("Vision pipeline failed: \(error.localizedDescription)")
         }
     }
-}
 }
 
 // Helper to convert orientations
