@@ -308,8 +308,11 @@ struct FourierSketchpadView: View {
         
         // 1. CALL YOUR FOUNDATION MODEL HERE
         let session = LanguageModelSession()
-        let response = try await session.respond(to: "Extract the shape intent from: \(query)")
-        
+        do {
+            let response = try await session.respond(to: "Extract the shape intent from: \(query)")
+        } catch {
+            print("LLM response has an error.")
+        }
         
         // Example: let response = await myLanguageModel.generate("Extract the shape intent from: \(query)")
         let detectedIntent = query.lowercased() // Mocking the LLM intent extraction

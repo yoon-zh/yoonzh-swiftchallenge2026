@@ -31,6 +31,10 @@ let package = Package(
                 .landscapeRight,
                 .landscapeLeft,
                 .portraitUpsideDown(.when(deviceFamilies: [.pad]))
+            ],
+            capabilities: [
+                .photoLibrary(purposeString: "Process images locally into a drawing"),
+                .camera(purposeString: "Process images captured from camera into a drawing")
             ]
         )
     ],
