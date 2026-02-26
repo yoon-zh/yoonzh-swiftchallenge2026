@@ -171,7 +171,7 @@ struct FourierSketchpadView: View {
                 Spacer() // Pushes everything to the bottom
                 
                 HStack(alignment: .bottom, spacing: 16) {
-
+                    
                     // 1. Text Input Toggle (Magic Wand)
                     Button(action: {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
@@ -225,7 +225,7 @@ struct FourierSketchpadView: View {
                     }
                     
                     Spacer() // Pushes the controls to the left
-
+                    
                     // 2. Camera Button
                     Button(action: { showCameraSheet = true }) {
                         Image(systemName: "camera.fill")
@@ -236,7 +236,7 @@ struct FourierSketchpadView: View {
                             .clipShape(Circle())
                             .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
                     }
-
+                    
                     // 3. Photo Library Button
                     PhotosPicker(selection: $selectedPhotoItem, matching: .images, photoLibrary: .shared()) {
                         Image(systemName: "photo.fill")
@@ -250,12 +250,12 @@ struct FourierSketchpadView: View {
                     .onChange(of: selectedPhotoItem) { newItem in
                         Task {
                             if let data = try? await newItem?.loadTransferable(type: Data.self),
-                            let uiImage = UIImage(data: data) {
+                               let uiImage = UIImage(data: data) {
                                 processImageWithVision(image: uiImage)
                             }
                         }
                     }
-
+                }
                 // Present the Camera Picker
                 .sheet(isPresented: $showCameraSheet) {
                     CameraPicker(selectedImage: Binding(
@@ -456,21 +456,21 @@ struct FourierSketchpadView: View {
             }
         }
     }
+}
 
-    // Helper to convert orientations
-    extension CGImagePropertyOrientation {
-        init(_ uiOrientation: UIImage.Orientation) {
-            switch uiOrientation {
-            case .up: self = .up
-            case .upMirrored: self = .upMirrored
-            case .down: self = .down
-            case .downMirrored: self = .downMirrored
-            case .left: self = .left
-            case .leftMirrored: self = .leftMirrored
-            case .right: self = .right
-            case .rightMirrored: self = .rightMirrored
-            @unknown default: self = .up
-            }
+// Helper to convert orientations
+extension CGImagePropertyOrientation {
+    init(_ uiOrientation: UIImage.Orientation) {
+        switch uiOrientation {
+        case .up: self = .up
+        case .upMirrored: self = .upMirrored
+        case .down: self = .down
+        case .downMirrored: self = .downMirrored
+        case .left: self = .left
+        case .leftMirrored: self = .leftMirrored
+        case .right: self = .right
+        case .rightMirrored: self = .rightMirrored
+        @unknown default: self = .up
         }
     }
 }
