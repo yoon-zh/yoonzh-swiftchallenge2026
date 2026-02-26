@@ -383,30 +383,57 @@ struct FourierSketchpadView: View {
         }
     }
     
-    func normalize(points: [CGPoint], toFit canvasSize: CGSize) -> [CGPoint] {
-        guard !points.isEmpty else { return [] }
+    // func normalize(points: [CGPoint], toFit canvasSize: CGSize) -> [CGPoint] {
+    //     guard !points.isEmpty else { return [] }
         
-        // Find the current bounds of the generated shape
-        let minX = points.map { $0.x }.min() ?? 0
-        let maxX = points.map { $0.x }.max() ?? 0
-        let minY = points.map { $0.y }.min() ?? 0
-        let maxY = points.map { $0.y }.max() ?? 0
+    //     // Find the current bounds of the generated shape
+    //     let minX = points.map { $0.x }.min() ?? 0
+    //     let maxX = points.map { $0.x }.max() ?? 0
+    //     let minY = points.map { $0.y }.min() ?? 0
+    //     let maxY = points.map { $0.y }.max() ?? 0
+        
+    //     let shapeWidth = maxX - minX
+    //     let shapeHeight = maxY - minY
+    //     guard shapeWidth > 0 && shapeHeight > 0 else { return points }
+        
+    //     // Calculate the scale to fit 80% of the canvas size (leaving a nice margin)
+    //     let scaleX = (canvasSize.width * 0.8) / shapeWidth
+    //     let scaleY = (canvasSize.height * 0.8) / shapeHeight
+    //     let scale = min(scaleX, scaleY)
+        
+    //     // Calculate offsets to center the shape
+    //     let offsetX = (canvasSize.width - (shapeWidth * scale)) / 2.0 - (minX * scale)
+    //     let offsetY = (canvasSize.height - (shapeHeight * scale)) / 2.0 - (minY * scale)
+        
+    //     // Apply scale and translation to all points
+    //     return points.map { CGPoint(x: ($0.x * scale) + offsetX, y: ($0.y * scale) + offsetY) }
+    // }
+
+    func normalizeGroup(strokes: [[CGPoint]], toFit canvasSize: CGSize) -> [[CGPoint]] {
+        let allPoints = strokes.flatMap { $0 }
+        guard !allPoints.isEmpty else { return [] }
+        
+        // Find the universal bounds of the entire drawing
+        let minX = allPoints.map { $0.x }.min() ?? 0
+        let maxX = allPoints.map { $0.x }.max() ?? 0
+        let minY = allPoints.map { $0.y }.min() ?? 0
+        let maxY = allPoints.map { $0.y }.max() ?? 0
         
         let shapeWidth = maxX - minX
         let shapeHeight = maxY - minY
-        guard shapeWidth > 0 && shapeHeight > 0 else { return points }
+        guard shapeWidth > 0 && shapeHeight > 0 else { return strokes }
         
-        // Calculate the scale to fit 80% of the canvas size (leaving a nice margin)
         let scaleX = (canvasSize.width * 0.8) / shapeWidth
         let scaleY = (canvasSize.height * 0.8) / shapeHeight
         let scale = min(scaleX, scaleY)
         
-        // Calculate offsets to center the shape
         let offsetX = (canvasSize.width - (shapeWidth * scale)) / 2.0 - (minX * scale)
         let offsetY = (canvasSize.height - (shapeHeight * scale)) / 2.0 - (minY * scale)
         
-        // Apply scale and translation to all points
-        return points.map { CGPoint(x: ($0.x * scale) + offsetX, y: ($0.y * scale) + offsetY) }
+        // Apply the exact same scale and offset to every stroke
+        return strokes.map { stroke in
+            stroke.map { CGPoint(x: ($0.x * scale) + offsetX, y: ($0.y * scale) + offsetY) }
+        }
     }
     
     func processImageWithVision(image: UIImage) async throws {
@@ -423,29 +450,39 @@ struct FourierSketchpadView: View {
             let orientation = CGImagePropertyOrientation(resizedImage.imageOrientation)
             
             let request = VNDetectContoursRequest { (request, error) in
+                defer { DispatchQueue.main.async { isProcessingImage = false } }
+                
                 guard let results = request.results as? [VNContoursObservation],
-                      let observation = results.first,
-                      let topContour = observation.topLevelContours.first else {
+                    let observation = results.first else {
                     print("No shapes found in image")
                     return
                 }
                 
-                var extractedPoints: [CGPoint] = []
+                var allExtractedStrokes: [[CGPoint]] = []
                 
-                for point in topContour.normalizedPoints {
-                    // Flipped Y to match SwiftUI coordinates
-                    let flippedY = 1.0 - Double(point.y)
-                    extractedPoints.append(CGPoint(x: Double(point.x) * 1000.0, y: flippedY * 1000.0))
+                // 1. Loop through ALL top-level contours instead of just the first one
+                for contour in observation.topLevelContours {
+                    var extractedPoints: [CGPoint] = []
+                    for point in contour.normalizedPoints {
+                        // Flip Y to match SwiftUI coordinates
+                        let flippedY = 1.0 - Double(point.y)
+                        extractedPoints.append(CGPoint(x: Double(point.x) * 1000.0, y: flippedY * 1000.0))
+                    }
+                    
+                    // 2. Only add it if it's an actual line (more than 1 point)
+                    if extractedPoints.count > 1 {
+                        allExtractedStrokes.append(extractedPoints)
+                    }
                 }
                 
-                
-                // Using your existing normalize function!
-                let fittedStroke = self.normalize(points: extractedPoints, toFit: CGSize(width: 300, height: 300))
-                if !fittedStroke.isEmpty {
-                    self.finishedStrokes = [fittedStroke]
-                    self.processSignal()
+                DispatchQueue.main.async {
+                    // 3. Normalize all strokes together so they don't pile up on top of each other
+                    let fittedStrokes = self.normalizeGroup(strokes: allExtractedStrokes, toFit: CGSize(width: 300, height: 300))
+                    if !fittedStrokes.isEmpty {
+                        self.finishedStrokes = fittedStrokes
+                        self.processSignal()
+                    }
                 }
-                continuation.resume()
             }
             
             request.contrastAdjustment = 2.0
