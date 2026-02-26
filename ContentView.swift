@@ -261,8 +261,10 @@ struct FourierSketchpadView: View {
                     CameraPicker(selectedImage: Binding(
                         get: { nil },
                         set: { newImage in
-                            if let newImage = newImage {
-                                processImageWithVision(image: newImage)
+                            Task {
+                                if let newImage = newImage {
+                                    try? await processImageWithVision(image: newImage)
+                                }
                             }
                         }
                     ))
