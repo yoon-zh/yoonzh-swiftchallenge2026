@@ -456,14 +456,31 @@ struct FourierSketchpadView: View {
                 guard let results = contourRequest.results as? [VNContoursObservation],
                     let observation = results.first else { return }
                 
-                var allExtractedStrokes: [[CGPoint]] = []
+                // var allExtractedStrokes: [[CGPoint]] = []
                 
-                for contour in observation.topLevelContours {
+                // for contour in observation.topLevelContours {
+                //     var extractedPoints: [CGPoint] = []
+                //     for point in contour.normalizedPoints {
+                //         let flippedY = 1.0 - Double(point.y)
+                //         extractedPoints.append(CGPoint(x: Double(point.x) * 1000.0, y: flippedY * 1000.0))
+                //     }
+                //     if extractedPoints.count > 1 {
+                //         allExtractedStrokes.append(extractedPoints)
+                //     }
+                // }
+
+                var allExtractedStrokes: [[CGPoint]] = []
+
+                // Loop through ALL contours, including inner holes
+                for i in 0..<observation.contourCount {
+                    guard let contour = try? observation.contour(at: i) else { continue }
+                    
                     var extractedPoints: [CGPoint] = []
                     for point in contour.normalizedPoints {
                         let flippedY = 1.0 - Double(point.y)
                         extractedPoints.append(CGPoint(x: Double(point.x) * 1000.0, y: flippedY * 1000.0))
                     }
+                    
                     if extractedPoints.count > 1 {
                         allExtractedStrokes.append(extractedPoints)
                     }
