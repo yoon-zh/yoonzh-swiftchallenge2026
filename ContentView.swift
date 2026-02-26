@@ -9,7 +9,7 @@ import PhotosUI
 struct FourierSketchpadView: View {
     @State private var finishedStrokes: [[CGPoint]] = []
     @State private var currentStroke: [CGPoint] = []
-
+    
     // The raw math output
     @State private var computedEpicycles: [Epicycle] = []
     
@@ -25,15 +25,15 @@ struct FourierSketchpadView: View {
     // NEW: Replaced 'smoothness' with Min and Max bounds for Band-Pass
     @State private var minFreqRatio: Double = 0.0
     @State private var maxFreqRatio: Double = 1.0
-
+    
     // Foundation models text input
     @State private var textInput: String = ""
     @State private var isGenerating: Bool = false
     @State private var showTextInput: Bool = false
-
+    
     // Keyboard
     @FocusState private var isInputFocused: Bool
-
+    
     // Photo picker
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var isProcessingImage: Bool = false
@@ -130,7 +130,7 @@ struct FourierSketchpadView: View {
                 }
                 .padding(.top, 40)
                 .padding()
-
+                
                 // THE SLIDE-OUT DRAWER
                 if showDrawer {
                     // NEW: Pass the new states to the drawer
@@ -251,7 +251,7 @@ struct FourierSketchpadView: View {
                         Task {
                             if let data = try? await newItem?.loadTransferable(type: Data.self),
                                let uiImage = UIImage(data: data) {
-                                processImageWithVision(image: uiImage)
+                                try? await processImageWithVision(image: uiImage)
                             }
                         }
                     }
@@ -261,8 +261,10 @@ struct FourierSketchpadView: View {
                     CameraPicker(selectedImage: Binding(
                         get: { nil },
                         set: { newImage in
-                            if let newImage = newImage {
-                                processImageWithVision(image: newImage)
+                            Task {
+                                if let newImage = newImage {
+                                    try? await processImageWithVision(image: newImage)
+                                }
                             }
                         }
                     ))
@@ -294,7 +296,7 @@ struct FourierSketchpadView: View {
         self.computedEpicycles = FourierCalculator.computeEpicycles(from: centeredStrokes, sampleCount: 512)
         applyFilter()
     }
-
+    
     // NEW: Band-Pass Filter Logic
     func applyFilter() {
         guard !computedEpicycles.isEmpty else {
@@ -312,9 +314,9 @@ struct FourierSketchpadView: View {
         let minCutoff = Int(Double(highestFreq) * safeMin)
         let maxCutoff = Int(Double(highestFreq) * safeMax)
         
-        activeEpicycles = computedEpicycles.filter { 
+        activeEpicycles = computedEpicycles.filter {
             let f = abs($0.frequency)
-            return f >= minCutoff && f <= maxCutoff 
+            return f >= minCutoff && f <= maxCutoff
         }
         
         activeTrace = FourierCalculator.reconstructPath(from: activeEpicycles, sampleCount: 512)
@@ -324,7 +326,7 @@ struct FourierSketchpadView: View {
     struct Output {
         // my output
     }
-
+    
     // MARK: - Foundation Model Integration
     func generateShapeFromText(query: String) async {
         isGenerating = true
@@ -364,7 +366,7 @@ struct FourierSketchpadView: View {
                 let y = sin(t) * 50
                 newStroke.append(CGPoint(x: x + 50, y: y + center.y))
             }
-        // Add more shapes...
+            // Add more shapes...
         default:
             print("Model generated unrecognized shape")
         }
@@ -379,7 +381,7 @@ struct FourierSketchpadView: View {
             self.textInput = ""
         }
     }
-
+    
     func normalize(points: [CGPoint], toFit canvasSize: CGSize) -> [CGPoint] {
         guard !points.isEmpty else { return [] }
         
@@ -405,61 +407,59 @@ struct FourierSketchpadView: View {
         // Apply scale and translation to all points
         return points.map { CGPoint(x: ($0.x * scale) + offsetX, y: ($0.y * scale) + offsetY) }
     }
-
-    func processImageWithVision(image: UIImage) {
-        guard let resizedImage = image.resized(to: 1024),
-            let cgImage = resizedImage.cgImage else { 
-            print("Failed to resize or get CGImage")
-            return 
-        }
-        
-        isProcessingImage = true
-        
-        // 2. Convert UIImage orientation (using the RESIZED image orientation)
-        let orientation = CGImagePropertyOrientation(resizedImage.imageOrientation)
-        
-        let request = VNDetectContoursRequest { (request, error) in
-            defer { DispatchQueue.main.async { isProcessingImage = false } }
-            
-            guard let results = request.results as? [VNContoursObservation],
-                let observation = results.first,
-                let topContour = observation.topLevelContours.first else {
-                print("No shapes found in image")
+    
+    func processImageWithVision(image: UIImage) async throws {
+        return try await withCheckedThrowingContinuation({ continuation in
+            guard let resizedImage = image.resized(to: 1024),
+                  let cgImage = resizedImage.cgImage else {
+                print("Failed to resize or get CGImage")
                 return
             }
             
-            var extractedPoints: [CGPoint] = []
+            isProcessingImage = true
             
-            for point in topContour.normalizedPoints {
-                // Flipped Y to match SwiftUI coordinates
-                let flippedY = 1.0 - Double(point.y)
-                extractedPoints.append(CGPoint(x: Double(point.x) * 1000.0, y: flippedY * 1000.0))
-            }
+            // 2. Convert UIImage orientation (using the RESIZED image orientation)
+            let orientation = CGImagePropertyOrientation(resizedImage.imageOrientation)
             
-            DispatchQueue.main.async {
+            let request = VNDetectContoursRequest { (request, error) in
+                guard let results = request.results as? [VNContoursObservation],
+                      let observation = results.first,
+                      let topContour = observation.topLevelContours.first else {
+                    print("No shapes found in image")
+                    return
+                }
+                
+                var extractedPoints: [CGPoint] = []
+                
+                for point in topContour.normalizedPoints {
+                    // Flipped Y to match SwiftUI coordinates
+                    let flippedY = 1.0 - Double(point.y)
+                    extractedPoints.append(CGPoint(x: Double(point.x) * 1000.0, y: flippedY * 1000.0))
+                }
+                
+                
                 // Using your existing normalize function!
                 let fittedStroke = self.normalize(points: extractedPoints, toFit: CGSize(width: 300, height: 300))
                 if !fittedStroke.isEmpty {
                     self.finishedStrokes = [fittedStroke]
                     self.processSignal()
                 }
+                continuation.resume()
             }
-        }
-        
-        request.contrastAdjustment = 2.0
-        request.detectsDarkOnLight = true
-        
-        // NEW: We pass the orientation here!
-        let handler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation, options: [:])
-        
-        DispatchQueue.global(qos: .userInitiated).async {
+            
+            request.contrastAdjustment = 2.0
+            request.detectsDarkOnLight = true
+            
+            // NEW: We pass the orientation here!
+            let handler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation, options: [:])
+            
             do {
                 try handler.perform([request])
             } catch {
                 print("Vision failed: \(error.localizedDescription)")
-                DispatchQueue.main.async { isProcessingImage = false }
+                continuation.resume(throwing: error)
             }
-        }
+        })
     }
 }
 
