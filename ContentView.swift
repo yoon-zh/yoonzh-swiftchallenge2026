@@ -257,17 +257,16 @@ struct FourierSketchpadView: View {
                     }
                 }
                 // Present the Camera Picker
-                .sheet(isPresented: $showCameraSheet) {
+                .fullScreenCover(isPresented: $showCameraSheet) {
                     CameraPicker(selectedImage: Binding(
                         get: { nil },
                         set: { newImage in
-                            Task {
-                                if let newImage = newImage {
-                                    try? await processImageWithVision(image: newImage)
-                                }
+                            if let newImage = newImage {
+                                processImageWithVision(image: newImage)
                             }
                         }
                     ))
+                    .ignoresSafeArea() // Ensures the camera fills the screen properly
                 }
                 .padding(24) // Outer padding from the screen edges
             }
