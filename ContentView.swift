@@ -407,11 +407,16 @@ struct FourierSketchpadView: View {
     }
 
     func processImageWithVision(image: UIImage) {
-        guard let cgImage = image.cgImage else { return }
+        guard let resizedImage = image.resized(to: 1024),
+            let cgImage = resizedImage.cgImage else { 
+            print("Failed to resize or get CGImage")
+            return 
+        }
+        
         isProcessingImage = true
         
-        // Convert UIImage orientation to CGImagePropertyOrientation
-        let orientation = CGImagePropertyOrientation(image.imageOrientation)
+        // 2. Convert UIImage orientation (using the RESIZED image orientation)
+        let orientation = CGImagePropertyOrientation(resizedImage.imageOrientation)
         
         let request = VNDetectContoursRequest { (request, error) in
             defer { DispatchQueue.main.async { isProcessingImage = false } }
@@ -471,6 +476,28 @@ extension CGImagePropertyOrientation {
         case .right: self = .right
         case .rightMirrored: self = .rightMirrored
         @unknown default: self = .up
+        }
+    }
+}
+
+extension UIImage {
+    // Resizes the image to a maximum dimension while keeping the aspect ratio
+    func resized(to maxDimension: CGFloat) -> UIImage? {
+        let aspectRatio = self.size.width / self.size.height
+        var newSize: CGSize
+        
+        if self.size.width > self.size.height {
+            newSize = CGSize(width: maxDimension, height: maxDimension / aspectRatio)
+        } else {
+            newSize = CGSize(width: maxDimension * aspectRatio, height: maxDimension)
+        }
+        
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1.0 // Keep it 1:1 pixel mapping to save memory
+        let renderer = UIGraphicsImageRenderer(size: newSize, format: format)
+        
+        return renderer.image { _ in
+            self.draw(in: CGRect(origin: .zero, size: newSize))
         }
     }
 }
