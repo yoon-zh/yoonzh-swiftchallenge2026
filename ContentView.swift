@@ -55,10 +55,14 @@ struct FourierSketchpadView: View {
                             .font(.headline)
                             .foregroundColor(.secondary)
                         
-                        // The Background dictates the size
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color(UIColor.secondarySystemBackground))
-                            .shadow(radius: 5)
+                        // 1. The Color.clear acts as a strict structural skeleton
+                        Color.clear
+                            .aspectRatio(1.0, contentMode: .fit)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color(UIColor.secondarySystemBackground))
+                                    .shadow(radius: 5)
+                            )
                             .overlay(
                                 GeometryReader { geo in
                                     ZStack {
@@ -75,7 +79,10 @@ struct FourierSketchpadView: View {
                                             .gesture(
                                             DragGesture(minimumDistance: 0)
                                                 .onChanged { value in
-                                                    currentStroke.append(value.location)
+                                                    // 2. LOGICAL FIX: Clamp coordinates so math doesn't record off-canvas points
+                                                    let clampedX = max(0, min(value.location.x, geo.size.width))
+                                                    let clampedY = max(0, min(value.location.y, geo.size.height))
+                                                    currentStroke.append(CGPoint(x: clampedX, y: clampedY))
                                                 }
                                                 .onEnded { _ in
                                                     if !currentStroke.isEmpty {
@@ -89,10 +96,8 @@ struct FourierSketchpadView: View {
                                     .onAppear { canvasSize = geo.size }
                                     .onChange(of: geo.size) { newSize in canvasSize = newSize }
                                 }
-                                .clipShape(RoundedRectangle(cornerRadius: 16)) // Prevents visual overflow
                             )
-                            .aspectRatio(1.0, contentMode: .fit)
-                            .padding()
+                            .clipShape(RoundedRectangle(cornerRadius: 16)) // 3. VISUAL FIX: Strictly cut off any overflowing drawing
                         
                         // Clear Canvas Button
                         Button(action: {
@@ -106,7 +111,6 @@ struct FourierSketchpadView: View {
                                 .foregroundColor(.red)
                         }
                     }
-                    .frame(maxWidth: .infinity)
                     
                     // RIGHT PANEL: Output
                     VStack {
@@ -114,10 +118,14 @@ struct FourierSketchpadView: View {
                             .font(.headline)
                             .foregroundColor(.secondary)
                         
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 16)
-                            .fill(Color(UIColor.secondarySystemBackground))
-                            .shadow(radius: 5)
+                        // 1. Use the same structural skeleton for the output side
+                        Color.clear
+                            .aspectRatio(1.0, contentMode: .fit)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color(UIColor.secondarySystemBackground))
+                                    .shadow(radius: 5)
+                            )
                             .overlay(
                                 Group {
                                     if activeEpicycles.isEmpty {
@@ -127,13 +135,9 @@ struct FourierSketchpadView: View {
                                         EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace)
                                     }
                                 }
-                                .clipShape(RoundedRectangle(cornerRadius: 16)) // Prevents visual overflow
                             )
-                            .aspectRatio(1.0, contentMode: .fit)
-                            .padding()
-                        }
+                            .clipShape(RoundedRectangle(cornerRadius: 16)) // Ensures epicycles don't overflow visually
                     }
-                    .frame(maxWidth: .infinity)
                 }
                 .padding(.top, 40)
                 .padding()
