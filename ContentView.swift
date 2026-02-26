@@ -382,32 +382,6 @@ struct FourierSketchpadView: View {
             self.textInput = ""
         }
     }
-    
-    // func normalize(points: [CGPoint], toFit canvasSize: CGSize) -> [CGPoint] {
-    //     guard !points.isEmpty else { return [] }
-        
-    //     // Find the current bounds of the generated shape
-    //     let minX = points.map { $0.x }.min() ?? 0
-    //     let maxX = points.map { $0.x }.max() ?? 0
-    //     let minY = points.map { $0.y }.min() ?? 0
-    //     let maxY = points.map { $0.y }.max() ?? 0
-        
-    //     let shapeWidth = maxX - minX
-    //     let shapeHeight = maxY - minY
-    //     guard shapeWidth > 0 && shapeHeight > 0 else { return points }
-        
-    //     // Calculate the scale to fit 80% of the canvas size (leaving a nice margin)
-    //     let scaleX = (canvasSize.width * 0.8) / shapeWidth
-    //     let scaleY = (canvasSize.height * 0.8) / shapeHeight
-    //     let scale = min(scaleX, scaleY)
-        
-    //     // Calculate offsets to center the shape
-    //     let offsetX = (canvasSize.width - (shapeWidth * scale)) / 2.0 - (minX * scale)
-    //     let offsetY = (canvasSize.height - (shapeHeight * scale)) / 2.0 - (minY * scale)
-        
-    //     // Apply scale and translation to all points
-    //     return points.map { CGPoint(x: ($0.x * scale) + offsetX, y: ($0.y * scale) + offsetY) }
-    // }
 
     func normalizeGroup(strokes: [[CGPoint]], toFit canvasSize: CGSize) -> [[CGPoint]] {
         let allPoints = strokes.flatMap { $0 }
