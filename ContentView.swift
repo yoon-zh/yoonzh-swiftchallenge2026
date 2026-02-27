@@ -5,6 +5,7 @@ import FoundationModels
 import Vision
 import PhotosUI
 import CoreImage.CIFilterBuiltins
+import ImagePlayground
 
 @available(iOS 26.0, *)
 struct FourierSketchpadView: View {
@@ -373,8 +374,9 @@ struct FourierSketchpadView: View {
             let extractionPrompt = "Extract only the core object or shape name from this request. Return just the word, no punctuation. Request: '\(query)'"
             let response = try await session.respond(to: extractionPrompt)
             
-            // Clean up the output to ensure it matches our switch cases
-            detectedIntent = response.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            // Grab the actual string from the Response object (.text or .value)
+            let responseText = response.text 
+            detectedIntent = responseText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             print("LLM extracted intent: \(detectedIntent)")
         } catch {
             print("LLM response error: \(error.localizedDescription). Falling back to raw query.")
