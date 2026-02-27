@@ -166,23 +166,27 @@ struct FourierSketchpadView: View {
                 .font(.headline)
                 .foregroundColor(.secondary)
             
-            Color.clear
-                .aspectRatio(1.0, contentMode: .fit)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(UIColor.secondarySystemBackground))
-                        .shadow(radius: 5)
-                )
-                .overlay(
-                    Group {
-                        if activeEpicycles.isEmpty {
-                            Text("Draw something on the left!").foregroundColor(.gray)
-                        } else {
-                            EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace, drawingCenter: drawingCenter, scale: drawingScale)
-                        }
-                    }
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+            if activeEpicycles.isEmpty {
+                Color.clear
+                    .aspectRatio(1.0, contentMode: .fit)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(UIColor.secondarySystemBackground))
+                            .shadow(radius: 5)
+                    )
+                    .overlay(
+                        Text("Draw something on the left!").foregroundColor(.gray)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+            } else {
+                // We directly render EpicycleView here now
+                EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace, drawingCenter: drawingCenter, scale: drawingScale)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(UIColor.secondarySystemBackground))
+                            .shadow(radius: 5)
+                    )
+            }
         }
         .frame(maxWidth: .infinity)
     }

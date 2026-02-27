@@ -83,6 +83,7 @@ struct EpicycleView: View {
                 let penRect = CGRect(x: currentPos.x - 3, y: currentPos.y - 3, width: 6, height: 6)
                 context.fill(Path(ellipseIn: penRect), with: .color(.yellow))
             }
+            .aspectRatio(1.0, contentMode: .fit)
             .background(Color(UIColor.secondarySystemBackground))
             .onReceive(timer) { currentTime in
                 let delta = currentTime.timeIntervalSince(lastUpdate)
