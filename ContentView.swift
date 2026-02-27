@@ -23,7 +23,7 @@ struct FourierSketchpadView: View {
     // Drawer State
     @State private var showDrawer = false
     
-    // NEW: Replaced 'smoothness' with Min and Max bounds for Band-Pass
+    // Band-Pass Bounds
     @State private var minFreqRatio: Double = 0.0
     @State private var maxFreqRatio: Double = 1.0
     
@@ -49,257 +49,269 @@ struct FourierSketchpadView: View {
         return canvasSize.width / baseCanvasSize.width
     }
 
+    // MARK: - MAIN BODY
     var body: some View {
         ZStack(alignment: .top) {
-            
-            HStack(spacing: 0) {
-                // MAIN CANVAS AREA
-                HStack(spacing: 20) {
-                    // LEFT PANEL: Input
-                    VStack {
-                        Text("Input: Draw & Lift Finger")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                        
-                        Color.clear
-                            .aspectRatio(1.0, contentMode: .fit)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color(UIColor.secondarySystemBackground))
-                                    .shadow(radius: 5)
-                            )
-                            .overlay(
-                                GeometryReader { geo in
-                                    ZStack {
-                                        ForEach(0..<finishedStrokes.count, id: \.self) { index in
-                                            DrawStroke(points: finishedStrokes[index], scale: drawingScale)
-                                                .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                                        }
-                                        
-                                        DrawStroke(points: currentStroke, scale: drawingScale)
-                                            .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                                        
-                                        Color.clear
-                                            .contentShape(Rectangle())
-                                            .gesture(
-                                            DragGesture(minimumDistance: 0)
-                                                .onChanged { value in
-                                                    let unscaledX = max(0, min(value.location.x, geo.size.width)) / drawingScale
-                                                    let unscaledY = max(0, min(value.location.y, geo.size.height)) / drawingScale
-                                                    currentStroke.append(CGPoint(x: unscaledX, y: unscaledY))
-                                                }
-                                                .onEnded { _ in
-                                                    if !currentStroke.isEmpty {
-                                                        finishedStrokes.append(currentStroke)
-                                                        currentStroke = []
-                                                    }
-                                                    processSignal()
-                                                }
-                                            )
-                                        }
-                                    .onAppear { 
-                                        if baseCanvasSize == .zero { baseCanvasSize = geo.size }
-                                        canvasSize = geo.size 
-                                    }
-                                    .onChange(of: geo.size) { newSize in canvasSize = newSize }
-                                }
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                        
-                        Button(action: {
-                            finishedStrokes = []
-                            currentStroke = []
-                            computedEpicycles = []
-                            activeEpicycles = []
-                            activeTrace = []
-                        }) {
-                            Label("Clear Canvas", systemImage: "trash").foregroundColor(.red)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    
-                    // RIGHT PANEL: Output
-                    VStack {
-                        Text("Output: Fourier Series")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                        
-                        Color.clear
-                            .aspectRatio(1.0, contentMode: .fit)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color(UIColor.secondarySystemBackground))
-                                    .shadow(radius: 5)
-                            )
-                            .overlay(
-                                Group {
-                                    if activeEpicycles.isEmpty {
-                                        Text("Draw something on the left!").foregroundColor(.gray)
-                                    } else {
-                                        EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace, scale: drawingScale)
-                                    }
-                                }
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .padding(.top, 40)
-                .padding()
-                
-                // THE SLIDE-OUT DRAWER
-                if showDrawer {
-                    // NEW: Pass the new states to the drawer
-                    AnalysisDrawerView(
-                        epicycles: computedEpicycles,
-                        showDrawer: $showDrawer,
-                        minFreqRatio: $minFreqRatio,
-                        maxFreqRatio: $maxFreqRatio
-                    )
-                    .frame(width: 350)
-                    .transition(.move(edge: .trailing))
-                }
-                
-            }
-            
-            // TOP BUTTONS
-            HStack {
-                Button(action: { showInfo = true }) {
-                    Image(systemName: "info.circle.fill")
-                        .font(.system(size: 28))
-                        .foregroundColor(.blue)
-                }
-                Spacer()
-                Button(action: {
-                    withAnimation(.spring()) {
-                        showDrawer.toggle()
-                    }
-                }) {
-                    Image(systemName: showDrawer ? "chart.bar.xaxis.chevron.down" : "chart.bar.xaxis")
-                        .font(.system(size: 28))
-                        .foregroundColor(.blue)
-                }
-            }
-            .padding()
-            
-            // 3. NEW: FLOATING BOTTOM-LEFT CONTROLS
-            VStack {
-                Spacer() // Pushes everything to the bottom
-                
-                HStack(alignment: .bottom, spacing: 16) {
-                    
-                    // 1. Text Input Toggle (Magic Wand)
-                    Button(action: {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                            showTextInput.toggle()
-                            if !showTextInput { textInput = "" } // Clear on close
-                        }
-                    }) {
-                        Image(systemName: "wand.and.stars")
-                            .font(.system(size: 24))
-                            .foregroundColor(.white)
-                            .padding(16)
-                            .background(Color.purple)
-                            .clipShape(Circle())
-                            .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
-                    }
-                    
-                    // The Floating Text Input Bar
-                    if showTextInput {
-                        HStack {
-                            TextField("Type a shape (e.g., 'heart', 'cube')", text: $textInput)
-                                .textFieldStyle(.plain)
-                                .focused($isInputFocused)
-                                .padding(.vertical, 8)
-                                .onSubmit {
-                                    isInputFocused = false
-                                    Task { await generateShapeFromText(query: textInput) }
-                                }
-                            
-                            Button(action: {
-                                isInputFocused = false
-                                Task { await generateShapeFromText(query: textInput) }
-                            }) {
-                                if isGenerating {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .purple))
-                                } else {
-                                    Image(systemName: "arrow.up.circle.fill")
-                                        .font(.system(size: 28))
-                                        .foregroundColor(textInput.isEmpty ? .gray : .purple)
-                                }
-                            }
-                            .disabled(textInput.isEmpty || isGenerating)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color(UIColor.secondarySystemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 24))
-                        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
-                        .frame(width: 320)
-                        .transition(.move(edge: .leading).combined(with: .opacity))
-                    }
-                    
-                    Spacer() // Pushes the controls to the left
-                    
-                    // 2. Camera Button
-                    Button(action: { showCameraSheet = true }) {
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(.white)
-                            .padding(16)
-                            .background(Color.green)
-                            .clipShape(Circle())
-                            .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
-                    }
-                    
-                    // 3. Photo Library Button
-                    PhotosPicker(selection: $selectedPhotoItem, matching: .images, photoLibrary: .shared()) {
-                        Image(systemName: "photo.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(.white)
-                            .padding(16)
-                            .background(Color.blue)
-                            .clipShape(Circle())
-                            .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
-                    }
-                    .onChange(of: selectedPhotoItem) { newItem in
-                        Task {
-                            if let data = try? await newItem?.loadTransferable(type: Data.self),
-                               let uiImage = UIImage(data: data) {
-                                try? await processImageWithVision(image: uiImage)
-                            }
-                        }
-                    }
-                }
-                // Present the Camera Picker
-                .fullScreenCover(isPresented: $showCameraSheet) {
-                    CameraPicker(selectedImage: Binding(
-                        get: { nil },
-                        set: { newImage in
-                            Task {
-                                if let newImage = newImage {
-                                    try? await processImageWithVision(image: newImage)
-                                }
-                            }
-                        }
-                    ))
-                    .ignoresSafeArea() // Ensures the camera fills the screen properly
-                }
-                .padding(24) // Outer padding from the screen edges
-                .opacity(showDrawer ? 0.0 : 1.0) // Hides buttons when drawer is open
-                .animation(.easeInOut, value: showDrawer)
-            }
+            mainWorkspace
+            topNavigation
+            floatingBottomControls
         }
         .alert("How it Works", isPresented: $showInfo) {
             Button("Got it!", role: .cancel) { }
         } message: {
             Text("Draw any shape on the left. The app breaks your drawing down into a chain of spinning circles, which work together to redraw your shape on the right.")
         }
-        // NEW: Recalculate when either slider moves
         .onChange(of: minFreqRatio) { _ in applyFilter() }
         .onChange(of: maxFreqRatio) { _ in applyFilter() }
     }
+    
+    // MARK: - UI COMPONENTS
+    
+    private var mainWorkspace: some View {
+        HStack(spacing: 0) {
+            // MAIN CANVAS AREA
+            HStack(spacing: 20) {
+                leftInputPanel
+                rightOutputPanel
+            }
+            .padding(.top, 40)
+            .padding()
+            
+            // THE SLIDE-OUT DRAWER
+            if showDrawer {
+                AnalysisDrawerView(
+                    epicycles: computedEpicycles,
+                    showDrawer: $showDrawer,
+                    minFreqRatio: $minFreqRatio,
+                    maxFreqRatio: $maxFreqRatio
+                )
+                .frame(width: 350)
+                .transition(.move(edge: .trailing))
+            }
+        }
+    }
+    
+    private var leftInputPanel: some View {
+        VStack {
+            Text("Input: Draw & Lift Finger")
+                .font(.headline)
+                .foregroundColor(.secondary)
+            
+            Color.clear
+                .aspectRatio(1.0, contentMode: .fit)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(UIColor.secondarySystemBackground))
+                        .shadow(radius: 5)
+                )
+                .overlay(
+                    GeometryReader { geo in
+                        ZStack {
+                            ForEach(0..<finishedStrokes.count, id: \.self) { index in
+                                DrawStroke(points: finishedStrokes[index], scale: drawingScale)
+                                    .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                            }
+                            
+                            DrawStroke(points: currentStroke, scale: drawingScale)
+                                .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                            
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { value in
+                                        let unscaledX = max(0, min(value.location.x, geo.size.width)) / drawingScale
+                                        let unscaledY = max(0, min(value.location.y, geo.size.height)) / drawingScale
+                                        currentStroke.append(CGPoint(x: unscaledX, y: unscaledY))
+                                    }
+                                    .onEnded { _ in
+                                        if !currentStroke.isEmpty {
+                                            finishedStrokes.append(currentStroke)
+                                            currentStroke = []
+                                        }
+                                        processSignal()
+                                    }
+                                )
+                        }
+                        .onAppear { 
+                            if baseCanvasSize == .zero { baseCanvasSize = geo.size }
+                            canvasSize = geo.size 
+                        }
+                        .onChange(of: geo.size) { newSize in canvasSize = newSize }
+                    }
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            
+            Button(action: {
+                finishedStrokes = []
+                currentStroke = []
+                computedEpicycles = []
+                activeEpicycles = []
+                activeTrace = []
+            }) {
+                Label("Clear Canvas", systemImage: "trash").foregroundColor(.red)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    private var rightOutputPanel: some View {
+        VStack {
+            Text("Output: Fourier Series")
+                .font(.headline)
+                .foregroundColor(.secondary)
+            
+            Color.clear
+                .aspectRatio(1.0, contentMode: .fit)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(UIColor.secondarySystemBackground))
+                        .shadow(radius: 5)
+                )
+                .overlay(
+                    Group {
+                        if activeEpicycles.isEmpty {
+                            Text("Draw something on the left!").foregroundColor(.gray)
+                        } else {
+                            EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace, scale: drawingScale)
+                        }
+                    }
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    private var topNavigation: some View {
+        HStack {
+            Button(action: { showInfo = true }) {
+                Image(systemName: "info.circle.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(.blue)
+            }
+            Spacer()
+            Button(action: {
+                withAnimation(.spring()) {
+                    showDrawer.toggle()
+                }
+            }) {
+                Image(systemName: showDrawer ? "chart.bar.fill" : "chart.bar.xaxis")
+                    .font(.system(size: 28))
+                    .foregroundColor(.blue)
+            }
+        }
+        .padding()
+    }
+    
+    private var floatingBottomControls: some View {
+        VStack {
+            Spacer() // Pushes everything to the bottom
+            
+            HStack(alignment: .bottom, spacing: 16) {
+                // 1. Text Input Toggle (Magic Wand)
+                Button(action: {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        showTextInput.toggle()
+                        if !showTextInput { textInput = "" } // Clear on close
+                    }
+                }) {
+                    Image(systemName: "wand.and.stars")
+                        .font(.system(size: 24))
+                        .foregroundColor(.white)
+                        .padding(16)
+                        .background(Color.purple)
+                        .clipShape(Circle())
+                        .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
+                }
+                
+                // The Floating Text Input Bar
+                if showTextInput {
+                    HStack {
+                        TextField("Type a shape (e.g., 'heart', 'cube')", text: $textInput)
+                            .textFieldStyle(.plain)
+                            .focused($isInputFocused)
+                            .padding(.vertical, 8)
+                            .onSubmit {
+                                isInputFocused = false
+                                Task { await generateShapeFromText(query: textInput) }
+                            }
+                        
+                        Button(action: {
+                            isInputFocused = false
+                            Task { await generateShapeFromText(query: textInput) }
+                        }) {
+                            if isGenerating {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .purple))
+                            } else {
+                                Image(systemName: "arrow.up.circle.fill")
+                                    .font(.system(size: 28))
+                                    .foregroundColor(textInput.isEmpty ? .gray : .purple)
+                            }
+                        }
+                        .disabled(textInput.isEmpty || isGenerating)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color(UIColor.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 24))
+                    .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
+                    .frame(width: 320)
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+                }
+                
+                Spacer() // Pushes the controls to the left
+                
+                // 2. Camera Button
+                Button(action: { showCameraSheet = true }) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.white)
+                        .padding(16)
+                        .background(Color.green)
+                        .clipShape(Circle())
+                        .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
+                }
+                
+                // 3. Photo Library Button
+                PhotosPicker(selection: $selectedPhotoItem, matching: .images, photoLibrary: .shared()) {
+                    Image(systemName: "photo.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.white)
+                        .padding(16)
+                        .background(Color.blue)
+                        .clipShape(Circle())
+                        .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
+                }
+                .onChange(of: selectedPhotoItem) { newItem in
+                    Task {
+                        if let data = try? await newItem?.loadTransferable(type: Data.self),
+                           let uiImage = UIImage(data: data) {
+                            try? await processImageWithVision(image: uiImage)
+                        }
+                    }
+                }
+            }
+            .fullScreenCover(isPresented: $showCameraSheet) {
+                CameraPicker(selectedImage: Binding(
+                    get: { nil },
+                    set: { newImage in
+                        Task {
+                            if let newImage = newImage {
+                                try? await processImageWithVision(image: newImage)
+                            }
+                        }
+                    }
+                ))
+                .ignoresSafeArea()
+            }
+            .padding(24)
+            .opacity(showDrawer ? 0.0 : 1.0)
+            .animation(.easeInOut, value: showDrawer)
+        }
+    }
+    
+    // MARK: - MATH & LOGIC
     
     func processSignal() {
         let allPoints = finishedStrokes.flatMap { $0 }
@@ -316,7 +328,6 @@ struct FourierSketchpadView: View {
         applyFilter()
     }
     
-    // NEW: Band-Pass Filter Logic
     func applyFilter() {
         guard !computedEpicycles.isEmpty else {
             activeEpicycles = []
@@ -326,7 +337,6 @@ struct FourierSketchpadView: View {
         
         let highestFreq = computedEpicycles.map { abs($0.frequency) }.max() ?? 1
         
-        // Ensure bounds don't cross to prevent crashes
         let safeMin = min(minFreqRatio, maxFreqRatio)
         let safeMax = max(minFreqRatio, maxFreqRatio)
         
@@ -350,7 +360,6 @@ struct FourierSketchpadView: View {
     func generateShapeFromText(query: String) async {
         isGenerating = true
         
-        // 1. CALL YOUR FOUNDATION MODEL HERE
         let session = LanguageModelSession()
         do {
             let response = try await session.respond(to: "Extract the shape intent from: \(query)")
@@ -358,43 +367,34 @@ struct FourierSketchpadView: View {
             print("LLM response has an error.")
         }
         
-        // Example: let response = await myLanguageModel.generate("Extract the shape intent from: \(query)")
-        let detectedIntent = query.lowercased() // Mocking the LLM intent extraction
-        
-        // 2. GENERATE POINTS BASED ON INTENT
+        let detectedIntent = query.lowercased() 
         var newStroke: [CGPoint] = []
-        let center = CGPoint(x: 150, y: 150) // Adjust based on your canvas
+        let center = CGPoint(x: 150, y: 150)
         let sampleCount = 100
         
         switch detectedIntent {
         case "heart":
-            // Parametric Heart
             for i in 0..<sampleCount {
                 let t = (Double(i) / Double(sampleCount)) * 2.0 * .pi
                 let x = 16 * pow(sin(t), 3)
                 let y = -(13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t))
-                
-                // Scale and translate
                 newStroke.append(CGPoint(x: (x * 5) + center.x, y: (y * 5) + center.y))
             }
         case "sine":
-            // Sine Wave
             for i in 0..<sampleCount {
                 let t = (Double(i) / Double(sampleCount)) * 4.0 * .pi
                 let x = Double(i) * 2.5
                 let y = sin(t) * 50
                 newStroke.append(CGPoint(x: x + 50, y: y + center.y))
             }
-            // Add more shapes...
         default:
             print("Model generated unrecognized shape")
         }
         
-        // 3. INJECT INTO YOUR PIPELINE
         await MainActor.run {
             if !newStroke.isEmpty {
-                self.finishedStrokes = [newStroke] // Replace or append
-                self.processSignal() // Triggers the FFT!
+                self.finishedStrokes = [newStroke] 
+                self.processSignal()
             }
             self.isGenerating = false
             self.textInput = ""
@@ -405,7 +405,6 @@ struct FourierSketchpadView: View {
         let allPoints = strokes.flatMap { $0 }
         guard !allPoints.isEmpty else { return [] }
         
-        // Find the universal bounds of the entire drawing
         let minX = allPoints.map { $0.x }.min() ?? 0
         let maxX = allPoints.map { $0.x }.max() ?? 0
         let minY = allPoints.map { $0.y }.min() ?? 0
@@ -422,7 +421,6 @@ struct FourierSketchpadView: View {
         let offsetX = (canvasSize.width - (shapeWidth * scale)) / 2.0 - (minX * scale)
         let offsetY = (canvasSize.height - (shapeHeight * scale)) / 2.0 - (minY * scale)
         
-        // Apply the exact same scale and offset to every stroke
         return strokes.map { stroke in
             stroke.map { CGPoint(x: ($0.x * scale) + offsetX, y: ($0.y * scale) + offsetY) }
         }
@@ -439,24 +437,18 @@ struct FourierSketchpadView: View {
             defer { DispatchQueue.main.async { isProcessingImage = false } }
             
             do {
-                // Step 1: Lift the Subject
                 let subjectRequest = VNGenerateForegroundInstanceMaskRequest()
                 let handler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation, options: [:])
                 try handler.perform([subjectRequest])
                 
                 guard let subjectObservation = subjectRequest.results?.first else { return }
                 
-                // Extract the Mask (This is a pure black & white silhouette)
                 let maskBuffer = try subjectObservation.generateScaledMaskForImage(forInstances: subjectObservation.allInstances, from: handler)
-                
-                // Step 2: Convert Mask directly to CGImage
                 let ciMask = CIImage(cvPixelBuffer: maskBuffer)
                 let context = CIContext()
                 guard let maskCGImage = context.createCGImage(ciMask, from: ciMask.extent) else { return }
                 
-                // Step 3: Run Contour Detection ON THE SILHOUETTE
                 let contourRequest = VNDetectContoursRequest()
-                // The mask is white on black, so it's super easy for Vision to trace
                 contourRequest.detectsDarkOnLight = false 
                 
                 let finalHandler = VNImageRequestHandler(cgImage: maskCGImage, options: [:])
@@ -467,7 +459,6 @@ struct FourierSketchpadView: View {
                 
                 var allExtractedStrokes: [[CGPoint]] = []
 
-                // Loop through ALL contours, including inner holes
                 for i in 0..<observation.contourCount {
                     guard let contour = try? observation.contour(at: i) else { continue }
                     
@@ -497,7 +488,8 @@ struct FourierSketchpadView: View {
     }
 }
 
-// Helper to convert orientations
+// MARK: - EXTENSIONS & HELPERS
+
 extension CGImagePropertyOrientation {
     init(_ uiOrientation: UIImage.Orientation) {
         switch uiOrientation {
@@ -515,7 +507,6 @@ extension CGImagePropertyOrientation {
 }
 
 extension UIImage {
-    // Resizes the image to a maximum dimension while keeping the aspect ratio
     func resized(to maxDimension: CGFloat) -> UIImage? {
         let aspectRatio = self.size.width / self.size.height
         var newSize: CGSize
@@ -527,7 +518,7 @@ extension UIImage {
         }
         
         let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 1.0 // Keep it 1:1 pixel mapping to save memory
+        format.scale = 1.0 
         let renderer = UIGraphicsImageRenderer(size: newSize, format: format)
         
         return renderer.image { _ in
@@ -538,6 +529,7 @@ extension UIImage {
 
 struct DrawStroke: Shape {
     var points: [CGPoint]
+    var scale: CGFloat = 1.0
     
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -547,6 +539,6 @@ struct DrawStroke: Shape {
         for point in points.dropFirst() {
             path.addLine(to: point)
         }
-        return path
+        return path.applying(CGAffineTransform(scaleX: scale, y: scale))
     }
 }
