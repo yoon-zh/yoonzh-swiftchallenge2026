@@ -1,3 +1,6 @@
+// WalkthroughView.swift
+import SwiftUI
+
 @available(iOS 26.0, *)
 struct WalkthroughPage: View {
     let icon: String
