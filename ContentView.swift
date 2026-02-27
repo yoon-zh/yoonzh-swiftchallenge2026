@@ -112,8 +112,11 @@ struct FourierSketchpadView: View {
                     activeEpicyclesCount: activeEpicycles.count,
                     showDrawer: $showDrawer,
                     minFreqRatio: $minFreqRatio,
-                    maxFreqRatio: $maxFreqRatio
+                    maxFreqRatio: $maxFreqRatio,
                     activeDrawerTab: $activeDrawerTab,
+                    isCompressionMode: $isCompressionMode,
+                    compressionDataLimit: $compressionDataLimit,
+                    showCompressionWalkthrough: $showCompressionWalkthrough,
                 )
                 .frame(width: 350)
                 .transition(.move(edge: .trailing))
@@ -192,17 +195,31 @@ struct FourierSketchpadView: View {
                 .foregroundColor(.secondary)
             
             if activeEpicycles.isEmpty {
-                Color.clear
-                    .aspectRatio(1.0, contentMode: .fit)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color(UIColor.secondarySystemBackground))
-                            .shadow(radius: 5)
-                    )
-                    .overlay(
-                        Text("Draw something on the left!").foregroundColor(.gray)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                VStack(spacing: 16) {
+                    Color.clear
+                        .aspectRatio(1.0, contentMode: .fit)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color(UIColor.secondarySystemBackground))
+                                .shadow(radius: 5)
+                        )
+                        .overlay(
+                            Text("Draw something on the left!").foregroundColor(.gray)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                    HStack(spacing: 12) {
+                        Button(action: {}) {
+                            Image(systemName: "pause.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.blue)
+                                .frame(width: 30)
+                        }
+                        
+                        Slider(value: .constant(0), in: 0...1) {}
+                    }
+                    .opacity(0)
+                    .padding(.horizontal, 8)
+                }
             } else {
                 EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace, drawingCenter: drawingCenter, scale: drawingScale)
             }
