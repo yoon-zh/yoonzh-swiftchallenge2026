@@ -13,7 +13,7 @@ struct EpicycleView: View {
     @State private var lastUpdate: Date = Date()
     
     // 60 FPS Timer & Loop Speed (5 seconds per loop)
-    let timer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
+    static let timer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
     let speedFactor: Double = 1.0 / 5.0 
     
     var body: some View {
@@ -93,7 +93,7 @@ struct EpicycleView: View {
                     .shadow(radius: 5)
             )
             .clipShape(RoundedRectangle(cornerRadius: 16))
-            .onReceive(timer) { currentTime in
+            .onReceive(Self.timer) { currentTime in
                 let delta = currentTime.timeIntervalSince(lastUpdate)
                 lastUpdate = currentTime
                 
