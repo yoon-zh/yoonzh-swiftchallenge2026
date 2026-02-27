@@ -8,7 +8,17 @@ struct MyApp: App {
         WindowGroup {
             GeometryReader { reader in
                 if reader.size.height > reader.size.width {
-                    Text("Rotate!")
+                    VStack(spacing: 16) {
+                        Image(systemName: "rotate.right")
+                            .font(.system(size: 56, weight: .medium))
+                            
+                        Text("Rotate me!")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    
                 } else {
                     FourierSketchpadView()
                 }
