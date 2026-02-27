@@ -38,6 +38,15 @@ struct WalkthroughView: View {
         .tabViewStyle(.page(indexDisplayMode: .always))
         .indexViewStyle(.page(backgroundDisplayMode: .always))
         .background(Color(UIColor.systemBackground))
+        .overlay(alignment: .topTrailing) {
+            Button("Skip") {
+                isPresented = false
+            }
+            .padding(.trailing, 24)
+            .padding(.top, 24)
+            .font(.headline)
+            .foregroundColor(.secondary)
+        }
     }
 }
 
@@ -135,6 +144,15 @@ struct CompressionWalkthroughView: View {
         .tabViewStyle(.page(indexDisplayMode: .always))
         .indexViewStyle(.page(backgroundDisplayMode: .always))
         .background(Color(UIColor.systemBackground))
+        .overlay(alignment: .topTrailing) {
+            Button("Skip") {
+                isPresented = false
+            }
+            .padding(.trailing, 24)
+            .padding(.top, 24)
+            .font(.headline)
+            .foregroundColor(.secondary)
+        }
     }
 }
 
@@ -170,5 +188,14 @@ struct MorphWalkthroughView: View {
         .tabViewStyle(.page(indexDisplayMode: .always))
         .indexViewStyle(.page(backgroundDisplayMode: .always))
         .background(Color(UIColor.systemBackground))
+        .overlay(alignment: .topTrailing) {
+            Button("Skip") {
+                isPresented = false
+            }
+            .padding(.trailing, 24)
+            .padding(.top, 24)
+            .font(.headline)
+            .foregroundColor(.secondary)
+        }
     }
 }
