@@ -4,6 +4,7 @@ import SwiftUI
 struct EpicycleView: View {
     let epicycles: [Epicycle]
     let tracePoints: [CGPoint]
+    var drawingCenter: CGPoint
     var scale: CGFloat = 1.0
     
     // Playback State
@@ -18,8 +19,7 @@ struct EpicycleView: View {
     var body: some View {
         VStack(spacing: 0) {
             Canvas { context, size in
-                let baseSize = CGSize(width: size.width / scale, height: size.height / scale)
-                let center = CGPoint(x: baseSize.width / 2, y: baseSize.height / 2)
+                let center = drawingCenter
                 context.scaleBy(x: scale, y: scale)
                 
                 // 1. Draw the Trace (Yellow Line)

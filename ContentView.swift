@@ -44,6 +44,9 @@ struct FourierSketchpadView: View {
     // Canvas size
     @State private var canvasSize: CGSize = CGSize(width: 300, height: 300)
     @State private var baseCanvasSize: CGSize = .zero
+
+    // Canvas drawing center
+    @State private var drawingCenter: CGPoint = CGPoint(x: 150, y: 150)
     
     var drawingScale: CGFloat {
         guard baseCanvasSize.width > 0, canvasSize.width > 0 else { return 1.0 }
@@ -175,7 +178,7 @@ struct FourierSketchpadView: View {
                         if activeEpicycles.isEmpty {
                             Text("Draw something on the left!").foregroundColor(.gray)
                         } else {
-                            EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace, scale: drawingScale)
+                            EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace, drawingCenter: drawingCenter, scale: drawingScale)
                         }
                     }
                 )
@@ -334,6 +337,8 @@ struct FourierSketchpadView: View {
         
         let centerX = allPoints.map { $0.x }.reduce(0, +) / CGFloat(allPoints.count)
         let centerY = allPoints.map { $0.y }.reduce(0, +) / CGFloat(allPoints.count)
+        
+        self.drawingCenter = CGPoint(x: centerX, y: centerY)
         
         let centeredStrokes = finishedStrokes.map { stroke in
             stroke.map { CGPoint(x: $0.x - centerX, y: $0.y - centerY) }
