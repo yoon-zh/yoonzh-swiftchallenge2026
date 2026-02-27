@@ -129,6 +129,11 @@ struct FourierSketchpadView: View {
                     isCompressionMode: $isCompressionMode,
                     compressionDataLimit: $compressionDataLimit,
                     showCompressionWalkthrough: $showCompressionWalkthrough,
+                    isMorphMode: $isMorphMode,
+                    showMorphWalkthrough: $showMorphWalkthrough,
+                    epicyclesA: $epicyclesA,
+                    epicyclesB: $epicyclesB,
+                    morphProgress: $morphProgress,
                 )
                 .frame(width: 350)
                 .transition(.move(edge: .trailing))
