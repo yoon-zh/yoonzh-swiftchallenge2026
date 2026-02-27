@@ -22,7 +22,7 @@ struct FourierSketchpadView: View {
     @State private var showInfo = false
     
     // Drawer State
-    @State private var showDrawer = false
+    @State private var showDrawer = true
     
     // Band-Pass Bounds
     @State private var minFreqRatio: Double = 0.0
