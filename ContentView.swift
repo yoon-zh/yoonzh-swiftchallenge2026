@@ -190,14 +190,18 @@ struct FourierSketchpadView: View {
                     .foregroundColor(.blue)
             }
             Spacer()
-            Button(action: {
-                withAnimation(.spring()) {
-                    showDrawer.toggle()
+            
+            if !showDrawer {
+                Button(action: {
+                    withAnimation(.spring()) {
+                        showDrawer.toggle()
+                    }
+                }) {
+                    Image(systemName: "chart.bar.xaxis")
+                        .font(.system(size: 28))
+                        .foregroundColor(.blue)
                 }
-            }) {
-                Image(systemName: showDrawer ? "chart.bar.fill" : "chart.bar.xaxis")
-                    .font(.system(size: 28))
-                    .foregroundColor(.blue)
+                .transition(.opacity)
             }
         }
         .padding()
