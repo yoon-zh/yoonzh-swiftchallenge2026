@@ -249,6 +249,8 @@ struct FourierSketchpadView: View {
             Button(action: { 
                 if isCompressionMode {
                     showCompressionWalkthrough = true
+                } else if isMorphMode {
+                    showMorphWalkthrough = true 
                 } else {
                     showWalkthroughSheet = true 
                 }
