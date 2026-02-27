@@ -6,14 +6,17 @@ struct EpicycleView: View {
     let tracePoints: [CGPoint]
     var scale: CGFloat = 1.0
     
-    let speedFactor: Double = (2.0 * .pi) / 5.0 // Loop every 5 seconds
+    // Playback State
+    @State private var progress: Double = 0.0
+    @State private var isPlaying: Bool = true
+    @State private var lastUpdate: Date = Date()
+    
+    // 60 FPS Timer & Loop Speed (5 seconds per loop)
+    let timer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
+    let speedFactor: Double = 1.0 / 5.0 
     
     var body: some View {
-        TimelineView(.animation) { context in
-            let time = context.date.timeIntervalSinceReferenceDate * speedFactor
-            // Map time to 0...1 cycle progress
-            let cycleProgress = (time.truncatingRemainder(dividingBy: 2.0 * .pi)) / (2.0 * .pi)
-            
+        VStack(spacing: 0) {
             Canvas { context, size in
                 let baseSize = CGSize(width: size.width / scale, height: size.height / scale)
                 let center = CGPoint(x: baseSize.width / 2, y: baseSize.height / 2)
@@ -25,7 +28,7 @@ struct EpicycleView: View {
                     let startPt = CGPoint(x: tracePoints[0].x + center.x, y: tracePoints[0].y + center.y)
                     tracePath.move(to: startPt)
                     
-                    let maxIndex = Int(Double(tracePoints.count) * cycleProgress)
+                    let maxIndex = Int(Double(tracePoints.count) * progress)
                     
                     if maxIndex > 0 {
                         var lastPoint = startPt
@@ -50,7 +53,7 @@ struct EpicycleView: View {
                 
                 // 2. Draw the Epicycles (Circles & Arms)
                 var currentPos = center
-                let t = time.truncatingRemainder(dividingBy: 2.0 * .pi)
+                let t = progress * 2.0 * .pi
                 
                 for circle in epicycles {
                     let radius = circle.amplitude
@@ -80,8 +83,36 @@ struct EpicycleView: View {
                 let penRect = CGRect(x: currentPos.x - 3, y: currentPos.y - 3, width: 6, height: 6)
                 context.fill(Path(ellipseIn: penRect), with: .color(.yellow))
             }
+            .background(Color(UIColor.secondarySystemBackground))
+            .onReceive(timer) { currentTime in
+                let delta = currentTime.timeIntervalSince(lastUpdate)
+                lastUpdate = currentTime
+                
+                if isPlaying {
+                    progress = (progress + delta * speedFactor).truncatingRemainder(dividingBy: 1.0)
+                }
+            }
+            .onAppear { lastUpdate = Date() }
+            
+            // 4. Replay Bar
+            HStack(spacing: 12) {
+                Button(action: { isPlaying.toggle() }) {
+                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.blue)
+                        .frame(width: 30)
+                }
+                
+                Slider(value: $progress, in: 0...1) { editing in
+                    if editing {
+                        isPlaying = false // Auto-pause when grabbing the slider
+                    }
+                }
+                .tint(.yellow)
+            }
+            .padding()
+            .background(Color(UIColor.secondarySystemBackground).brightness(-0.05))
         }
-        .background(Color(UIColor.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
