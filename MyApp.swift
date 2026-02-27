@@ -6,7 +6,13 @@ import SwiftUI
 struct MyApp: App {
     var body: some Scene {
         WindowGroup {
-            FourierSketchpadView()
+            GeometryReader { reader in
+                if reader.size.height > reader.size.width {
+                    Text("Rotate!")
+                } else {
+                    FourierSketchpadView()
+                }
+            }
         }
     }
 }
