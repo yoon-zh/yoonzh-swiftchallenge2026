@@ -213,89 +213,97 @@ struct FourierSketchpadView: View {
             Spacer() // Pushes everything to the bottom
             
             HStack(alignment: .bottom, spacing: 16) {
-                // 1. Text Input Toggle (Magic Wand)
-                Button(action: {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                        showTextInput.toggle()
-                        if !showTextInput { textInput = "" } // Clear on close
-                    }
-                }) {
-                    Image(systemName: "wand.and.stars")
-                        .font(.system(size: 24))
-                        .foregroundColor(.white)
-                        .padding(16)
-                        .background(Color.purple)
-                        .clipShape(Circle())
-                        .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
-                }
                 
-                // The Floating Text Input Bar
-                if showTextInput {
-                    HStack {
-                        TextField("Type a shape (e.g., 'heart', 'cube')", text: $textInput)
-                            .textFieldStyle(.plain)
-                            .focused($isInputFocused)
-                            .padding(.vertical, 8)
-                            .onSubmit {
-                                isInputFocused = false
-                                Task { await generateShapeFromText(query: textInput) }
+                // Group the buttons in a VStack aligned to the left
+                VStack(alignment: .leading, spacing: 16) {
+                    
+                    // 3. Photo Library Button (Top)
+                    PhotosPicker(selection: $selectedPhotoItem, matching: .images, photoLibrary: .shared()) {
+                        Image(systemName: "photo.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(.white)
+                            .padding(16)
+                            .background(Color.blue)
+                            .clipShape(Circle())
+                            .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
+                    }
+                    .onChange(of: selectedPhotoItem) { newItem in
+                        Task {
+                            if let data = try? await newItem?.loadTransferable(type: Data.self),
+                               let uiImage = UIImage(data: data) {
+                                try? await processImageWithVision(image: uiImage)
                             }
-                        
+                        }
+                    }
+                    
+                    // 2. Camera Button (Middle)
+                    Button(action: { showCameraSheet = true }) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(.white)
+                            .padding(16)
+                            .background(Color.green)
+                            .clipShape(Circle())
+                            .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
+                    }
+                    
+                    // Bottom Row: Magic Wand + Text Input
+                    HStack(alignment: .center, spacing: 16) {
+                        // 1. Text Input Toggle (Magic Wand)
                         Button(action: {
-                            isInputFocused = false
-                            Task { await generateShapeFromText(query: textInput) }
-                        }) {
-                            if isGenerating {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .purple))
-                            } else {
-                                Image(systemName: "arrow.up.circle.fill")
-                                    .font(.system(size: 28))
-                                    .foregroundColor(textInput.isEmpty ? .gray : .purple)
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                showTextInput.toggle()
+                                if !showTextInput { textInput = "" } // Clear on close
                             }
+                        }) {
+                            Image(systemName: "wand.and.stars")
+                                .font(.system(size: 24))
+                                .foregroundColor(.white)
+                                .padding(16)
+                                .background(Color.purple)
+                                .clipShape(Circle())
+                                .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
                         }
-                        .disabled(textInput.isEmpty || isGenerating)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color(UIColor.secondarySystemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 24))
-                    .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
-                    .frame(width: 320)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-                }
-                
-                Spacer() // Pushes the controls to the left
-                
-                // 2. Camera Button
-                Button(action: { showCameraSheet = true }) {
-                    Image(systemName: "camera.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(.white)
-                        .padding(16)
-                        .background(Color.green)
-                        .clipShape(Circle())
-                        .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
-                }
-                
-                // 3. Photo Library Button
-                PhotosPicker(selection: $selectedPhotoItem, matching: .images, photoLibrary: .shared()) {
-                    Image(systemName: "photo.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(.white)
-                        .padding(16)
-                        .background(Color.blue)
-                        .clipShape(Circle())
-                        .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
-                }
-                .onChange(of: selectedPhotoItem) { newItem in
-                    Task {
-                        if let data = try? await newItem?.loadTransferable(type: Data.self),
-                           let uiImage = UIImage(data: data) {
-                            try? await processImageWithVision(image: uiImage)
+                        
+                        // The Floating Text Input Bar
+                        if showTextInput {
+                            HStack {
+                                TextField("Type a shape (e.g., 'heart', 'cube')", text: $textInput)
+                                    .textFieldStyle(.plain)
+                                    .focused($isInputFocused)
+                                    .padding(.vertical, 8)
+                                    .onSubmit {
+                                        isInputFocused = false
+                                        Task { await generateShapeFromText(query: textInput) }
+                                    }
+                                
+                                Button(action: {
+                                    isInputFocused = false
+                                    Task { await generateShapeFromText(query: textInput) }
+                                }) {
+                                    if isGenerating {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .purple))
+                                    } else {
+                                        Image(systemName: "arrow.up.circle.fill")
+                                            .font(.system(size: 28))
+                                            .foregroundColor(textInput.isEmpty ? .gray : .purple)
+                                    }
+                                }
+                                .disabled(textInput.isEmpty || isGenerating)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color(UIColor.secondarySystemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 24))
+                            .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
+                            .frame(width: 320)
+                            .transition(.move(edge: .leading).combined(with: .opacity))
                         }
                     }
                 }
+                
+                Spacer() // Pushes the entire stack to the far left edge
             }
             .fullScreenCover(isPresented: $showCameraSheet) {
                 CameraPicker(selectedImage: Binding(
@@ -310,7 +318,8 @@ struct FourierSketchpadView: View {
                 ))
                 .ignoresSafeArea()
             }
-            .padding(24)
+            // Adjusted padding to shift the buttons slightly further to the left (12 instead of 24)
+            .padding(EdgeInsets(top: 24, leading: 12, bottom: 24, trailing: 24)) 
             .opacity(showDrawer ? 0.0 : 1.0)
             .animation(.easeInOut, value: showDrawer)
         }
