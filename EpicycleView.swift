@@ -17,8 +17,11 @@ struct EpicycleView: View {
     let speedFactor: Double = 1.0 / 5.0 
     
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 16) {
+
+            // 1. The Canvas Area
             Canvas { context, size in
+                let baseSize = CGSize(width: size.width / scale, height: size.height / scale)
                 let center = drawingCenter
                 context.scaleBy(x: scale, y: scale)
                 
@@ -84,7 +87,12 @@ struct EpicycleView: View {
                 context.fill(Path(ellipseIn: penRect), with: .color(.yellow))
             }
             .aspectRatio(1.0, contentMode: .fit)
-            .background(Color(UIColor.secondarySystemBackground))
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(UIColor.secondarySystemBackground))
+                    .shadow(radius: 5)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16))
             .onReceive(timer) { currentTime in
                 let delta = currentTime.timeIntervalSince(lastUpdate)
                 lastUpdate = currentTime
@@ -96,7 +104,7 @@ struct EpicycleView: View {
             .onAppear { lastUpdate = Date() }
             
             // 4. Replay Bar
-            HStack(spacing: 12) {
+           HStack(spacing: 12) {
                 Button(action: { isPlaying.toggle() }) {
                     Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 20))
@@ -106,14 +114,13 @@ struct EpicycleView: View {
                 
                 Slider(value: $progress, in: 0...1) { editing in
                     if editing {
-                        isPlaying = false // Auto-pause when grabbing the slider
+                        isPlaying = false
                     }
                 }
                 .tint(.yellow)
             }
-            .padding()
-            .background(Color(UIColor.secondarySystemBackground).brightness(-0.05))
+            .padding(.horizontal, 8)
+            // .background(Color(UIColor.secondarySystemBackground).brightness(-0.05))
         }
-        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }

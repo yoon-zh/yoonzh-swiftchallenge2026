@@ -179,13 +179,7 @@ struct FourierSketchpadView: View {
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 16))
             } else {
-                // We directly render EpicycleView here now
                 EpicycleView(epicycles: activeEpicycles, tracePoints: activeTrace, drawingCenter: drawingCenter, scale: drawingScale)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color(UIColor.secondarySystemBackground))
-                            .shadow(radius: 5)
-                    )
             }
         }
         .frame(maxWidth: .infinity)
