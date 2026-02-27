@@ -20,7 +20,7 @@ struct WalkthroughView: View {
                 icon: "hand.draw.fill",
                 iconColor: .green,
                 title: "Draw Your Way",
-                description: "Draw directly on the left canvas, take a photo, pick an image from your album, or tap the Magic Wand to type out what you want to see (like 'star' or 'cat')."
+                description: "Draw directly on the left canvas, use an image (album or camera), or tap the Magic Wand to type out what you want to see (like 'star' or 'cat')."
             )
             
             // Page 3: Analysis
@@ -28,7 +28,7 @@ struct WalkthroughView: View {
                 icon: "chart.bar.xaxis",
                 iconColor: .blue,
                 title: "Analyze & Filter",
-                description: "Tap the chart icon to open the Analysis Drawer. View the frequencies making up your drawing, and use the sliders to filter out jitters or block out the main shape!",
+                description: "Tap the chart icon and learn about real-life applications, see the frequencies making up your drawing, and change them to transform your shapes!",
                 showDismiss: true,
                 action: {
                     isPresented = false
