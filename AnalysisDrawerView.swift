@@ -22,6 +22,13 @@ struct AnalysisDrawerView: View {
     @State private var showMagInfo = false
     @State private var showPhaseInfo = false
 
+    // Convolution
+    @Binding var isMorphMode: Bool
+    @Binding var showMorphWalkthrough: Bool
+    @Binding var epicyclesA: [Epicycle]
+    @Binding var epicyclesB: [Epicycle]
+    @Binding var morphProgress: Double
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             
@@ -80,6 +87,54 @@ struct AnalysisDrawerView: View {
                             }
                             .padding()
                             .background(Color.green.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            
+                            Divider()
+                        }
+
+                        // NEW: MORPH SIMULATOR UI
+                        if isMorphMode {
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Text("Shape Morphing").font(.headline)
+                                    Spacer()
+                                    Button("Exit") {
+                                        withAnimation { isMorphMode = false }
+                                    }
+                                    .font(.caption).foregroundColor(.red)
+                                }
+                                
+                                Text("1. Draw Shape A, then tap below:")
+                                    .font(.caption).foregroundColor(.secondary)
+                                Button(action: { epicyclesA = epicycles }) {
+                                    Text(epicyclesA.isEmpty ? "Save as Shape A" : "Shape A Saved ✓")
+                                        .frame(maxWidth: .infinity)
+                                        .padding(8)
+                                        .background(epicyclesA.isEmpty ? Color.blue.opacity(0.2) : Color.green.opacity(0.2))
+                                        .cornerRadius(8)
+                                }
+                                
+                                Text("2. Draw Shape B, then tap below:")
+                                    .font(.caption).foregroundColor(.secondary)
+                                Button(action: { epicyclesB = epicycles }) {
+                                    Text(epicyclesB.isEmpty ? "Save as Shape B" : "Shape B Saved ✓")
+                                        .frame(maxWidth: .infinity)
+                                        .padding(8)
+                                        .background(epicyclesB.isEmpty ? Color.blue.opacity(0.2) : Color.green.opacity(0.2))
+                                        .cornerRadius(8)
+                                }
+                                
+                                if !epicyclesA.isEmpty && !epicyclesB.isEmpty {
+                                    Text("Morph Progress: \(Int(morphProgress * 100))%")
+                                        .font(.caption2).fontWeight(.bold)
+                                        .padding(.top, 8)
+                                    
+                                    Slider(value: $morphProgress, in: 0.0...1.0)
+                                        .tint(.purple)
+                                }
+                            }
+                            .padding()
+                            .background(Color.purple.opacity(0.1))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             
                             Divider()
@@ -207,18 +262,18 @@ struct AnalysisDrawerView: View {
                         
                         Button(action: {
                             withAnimation {
-                                isCompressionMode = true
-                                showCompressionWalkthrough = true
-                                activeDrawerTab = 1 // Switch back to Analyze to see the slider
+                                isMorphMode = true
+                                showMorphWalkthrough = true
+                                activeDrawerTab = 1 // Jump back to Analyze to see the tools
                             }
                         }) {
                             HStack {
-                                Image(systemName: "arrow.down.right.and.arrow.up.left")
+                                Image(systemName: "square.2.layers.3d")
                                     .font(.title2)
-                                    .foregroundColor(.green)
+                                    .foregroundColor(.purple)
                                 VStack(alignment: .leading) {
-                                    Text("How Compression Works").font(.subheadline).bold().foregroundColor(.primary)
-                                    Text("Understand JPEG & MP3 data reduction").font(.caption).foregroundColor(.secondary)
+                                    Text("Shape Morphing").font(.subheadline).bold().foregroundColor(.primary)
+                                    Text("Frequency-space interpolation").font(.caption).foregroundColor(.secondary)
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right").foregroundColor(.gray)

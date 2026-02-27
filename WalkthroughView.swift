@@ -137,3 +137,38 @@ struct CompressionWalkthroughView: View {
         .background(Color(UIColor.systemBackground))
     }
 }
+
+@available(iOS 26.0, *)
+struct MorphWalkthroughView: View {
+    @Binding var isPresented: Bool
+    
+    var body: some View {
+        TabView {
+            WalkthroughPage(
+                icon: "sparkles",
+                iconColor: .purple,
+                title: "Latent Space & Morphing",
+                description: "If you try to morph a dog into a cat by simply sliding their lines together on a canvas, you get a tangled mess. But if you morph their frequencies, something magical happens."
+            )
+            
+            WalkthroughPage(
+                icon: "waveform",
+                iconColor: .blue,
+                title: "Frequency Interpolation",
+                description: "Instead of moving points in space, we transition the mathematical DNA of the shapes. We slowly adjust the sizes and starting angles of Shape A's circles until they match Shape B's circles."
+            )
+            
+            WalkthroughPage(
+                icon: "square.2.layers.3d",
+                iconColor: .green,
+                title: "Try It Yourself",
+                description: "Draw a simple shape and tap 'Save Shape A'. Clear the canvas, draw a different shape, and tap 'Save Shape B'. Then use the slider to watch the math smoothly blossom one shape into the other!",
+                showDismiss: true,
+                action: { isPresented = false }
+            )
+        }
+        .tabViewStyle(.page(indexDisplayMode: .always))
+        .indexViewStyle(.page(backgroundDisplayMode: .always))
+        .background(Color(UIColor.systemBackground))
+    }
+}

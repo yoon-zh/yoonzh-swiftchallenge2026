@@ -57,6 +57,13 @@ struct FourierSketchpadView: View {
     @State private var isCompressionMode: Bool = false
     @State private var compressionDataLimit: Double = 1.0 // 1.0 = 100%, 0.01 = 1%
     @State private var showCompressionWalkthrough: Bool = false
+
+    // MARK: - Morphing State
+    @State private var isMorphMode: Bool = false
+    @State private var showMorphWalkthrough: Bool = false
+    @State private var epicyclesA: [Epicycle] = []
+    @State private var epicyclesB: [Epicycle] = []
+    @State private var morphProgress: Double = 0.0
     
     var drawingScale: CGFloat {
         guard baseCanvasSize.width > 0, canvasSize.width > 0 else { return 1.0 }
@@ -79,6 +86,10 @@ struct FourierSketchpadView: View {
             CompressionWalkthroughView(isPresented: $showCompressionWalkthrough)
                 .interactiveDismissDisabled()
         }
+        .sheet(isPresented: $showMorphWalkthrough) {
+            MorphWalkthroughView(isPresented: $showMorphWalkthrough)
+                .interactiveDismissDisabled()
+        }
         // 2. Trigger on first launch
         .onAppear {
             if !hasSeenWalkthrough {
@@ -90,6 +101,7 @@ struct FourierSketchpadView: View {
         .onChange(of: maxFreqRatio) { _ in applyFilter() }
         .onChange(of: compressionDataLimit) { _ in applyFilter() }
         .onChange(of: isCompressionMode) { _ in applyFilter() }
+        .onChange(of: morphProgress) { _ in applyMorph() }
     }
     
     // MARK: - UI COMPONENTS
@@ -628,6 +640,21 @@ struct FourierSketchpadView: View {
                 print("Vision pipeline failed: \(error.localizedDescription)")
             }
         }
+    }
+
+    func applyMorph() {
+        guard !epicyclesA.isEmpty && !epicyclesB.isEmpty else { return }
+        
+        // Interpolate the two sets of epicycles
+        let morphedEpicycles = FourierCalculator.interpolateEpicycles(
+            a: epicyclesA, 
+            b: epicyclesB, 
+            progress: morphProgress
+        )
+        
+        // Update the UI
+        activeEpicycles = morphedEpicycles
+        activeTrace = FourierCalculator.reconstructPath(from: activeEpicycles, sampleCount: 512)
     }
 }
 

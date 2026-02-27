@@ -207,3 +207,42 @@ class FourierCalculator {
         return epicycles
     }
 }
+
+extension FourierCalculator {
+    static func interpolateEpicycles(a: [Epicycle], b: [Epicycle], progress: Double) -> [Epicycle] {
+        var dictA = [Int: Epicycle]()
+        for ea in a { dictA[ea.frequency] = ea }
+        
+        var dictB = [Int: Epicycle]()
+        for eb in b { dictB[eb.frequency] = eb }
+        
+        let allFreqs = Set(a.map { $0.frequency }).union(b.map { $0.frequency })
+        var result = [Epicycle]()
+        
+        for freq in allFreqs {
+            // Default to 0 amplitude if a frequency exists in one shape but not the other
+            let ea = dictA[freq] ?? Epicycle(frequency: freq, amplitude: 0, phase: 0)
+            let eb = dictB[freq] ?? Epicycle(frequency: freq, amplitude: 0, phase: 0)
+            
+            // Convert polar to rectangular to avoid phase-wrapping artifacts during interpolation
+            let reA = ea.amplitude * cos(ea.phase)
+            let imA = ea.amplitude * sin(ea.phase)
+            let reB = eb.amplitude * cos(eb.phase)
+            let imB = eb.amplitude * sin(eb.phase)
+            
+            // Linear interpolation in rectangular space
+            let reInterp = reA * (1 - progress) + reB * progress
+            let imInterp = imA * (1 - progress) + imB * progress
+            
+            // Convert back to polar
+            let amp = sqrt(reInterp * reInterp + imInterp * imInterp)
+            let phase = atan2(imInterp, reInterp)
+            
+            result.append(Epicycle(frequency: freq, amplitude: amp, phase: phase))
+        }
+        
+        // Keep them sorted by amplitude, just like the standard pipeline
+        result.sort { $0.amplitude > $1.amplitude }
+        return result
+    }
+}
