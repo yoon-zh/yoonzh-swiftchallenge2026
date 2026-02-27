@@ -27,7 +27,7 @@ struct AnalysisDrawerView: View {
             
             // Header
             HStack {
-                Text(activeDrawerTab == 0 ? "Analysis" : "Learn")
+                Text(activeDrawerTab == 1 ? "Analysis" : "Learn")
                     .font(.title2.bold())
                 Spacer()
                 Button(action: {
