@@ -295,7 +295,7 @@ struct AnalysisDrawerView: View {
                                     .font(.title2)
                                     .foregroundColor(.purple)
                                 VStack(alignment: .leading) {
-                                    Text("Shape Morphing").font(.subheadline).bold().foregroundColor(.primary)
+                                    Text("Cross-Synthesis").font(.subheadline).bold().foregroundColor(.primary)
                                     Text("Frequency-space interpolation").font(.caption).foregroundColor(.secondary)
                                 }
                                 Spacer()
