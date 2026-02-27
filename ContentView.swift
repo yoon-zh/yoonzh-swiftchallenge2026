@@ -586,14 +586,7 @@ struct FourierSketchpadView: View {
         let orientation = CGImagePropertyOrientation(resizedImage.imageOrientation)
         
         DispatchQueue.global(qos: .userInitiated).async {
-            defer { DispatchQueue.main.async {
-                    // FIX: Use baseCanvasSize to prevent double-scaling
-                    let fittedStrokes = self.normalizeGroup(strokes: allExtractedStrokes, toFit: self.baseCanvasSize)
-                    if !fittedStrokes.isEmpty {
-                        self.finishedStrokes = fittedStrokes
-                        self.processSignal()
-                    }
-                }
+            defer { DispatchQueue.main.async { isProcessingImage = false } }
             
             do {
                 let subjectRequest = VNGenerateForegroundInstanceMaskRequest()
@@ -641,14 +634,14 @@ struct FourierSketchpadView: View {
                     }
                 }
                 
+                // 2. The fix applied in the correct place, after strokes are extracted
                 DispatchQueue.main.async {
-                    let fittedStrokes = self.normalizeGroup(strokes: allExtractedStrokes, toFit: self.canvasSize)
+                    let fittedStrokes = self.normalizeGroup(strokes: allExtractedStrokes, toFit: self.baseCanvasSize)
                     if !fittedStrokes.isEmpty {
                         self.finishedStrokes = fittedStrokes
                         self.processSignal()
                     }
-                }
-                
+                }   
             } catch {
                 print("Vision pipeline failed: \(error.localizedDescription)")
             }
