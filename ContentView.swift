@@ -365,17 +365,26 @@ struct FourierSketchpadView: View {
         isGenerating = true
         
         let session = LanguageModelSession()
+        var detectedIntent = query.lowercased()
+        
+        // 1. LLM Intent Extraction
+        // We instruct the model to strip away conversational fluff and return just the noun.
         do {
-            let response = try await session.respond(to: "Extract the shape intent from: \(query)")
+            let extractionPrompt = "Extract only the core object or shape name from this request. Return just the word, no punctuation. Request: '\(query)'"
+            let response = try await session.respond(to: extractionPrompt)
+            
+            // Clean up the output to ensure it matches our switch cases
+            detectedIntent = response.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            print("LLM extracted intent: \(detectedIntent)")
         } catch {
-            print("LLM response has an error.")
+            print("LLM response error: \(error.localizedDescription). Falling back to raw query.")
         }
         
-        let detectedIntent = query.lowercased() 
         var newStroke: [CGPoint] = []
         let center = CGPoint(x: 150, y: 150)
         let sampleCount = 100
         
+        // 2. Shape Routing
         switch detectedIntent {
         case "heart":
             for i in 0..<sampleCount {
@@ -384,17 +393,66 @@ struct FourierSketchpadView: View {
                 let y = -(13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t))
                 newStroke.append(CGPoint(x: (x * 5) + center.x, y: (y * 5) + center.y))
             }
-        case "sine":
+            
+        case "sine", "wave":
             for i in 0..<sampleCount {
                 let t = (Double(i) / Double(sampleCount)) * 4.0 * .pi
                 let x = Double(i) * 2.5
                 let y = sin(t) * 50
                 newStroke.append(CGPoint(x: x + 50, y: y + center.y))
             }
+            
+        case "star":
+            // A simple 5-pointed star. We just define the vertices; your 
+            // FourierCalculator.resampleStrokes will automatically fill in the points!
+            let outerRadius = 80.0
+            for i in 0...5 { // 0 to 5 completes the loop back to the start
+                let angle = Double(i) * 4.0 * .pi / 5.0 - .pi / 2.0
+                let x = outerRadius * cos(angle)
+                let y = outerRadius * sin(angle)
+                newStroke.append(CGPoint(x: x + center.x, y: y + center.y))
+            }
+            
+        case "square", "box", "cube":
+            let size = 60.0
+            newStroke = [
+                CGPoint(x: center.x - size, y: center.y - size),
+                CGPoint(x: center.x + size, y: center.y - size),
+                CGPoint(x: center.x + size, y: center.y + size),
+                CGPoint(x: center.x - size, y: center.y + size),
+                CGPoint(x: center.x - size, y: center.y - size) // Close the path
+            ]
+            
         default:
-            print("Model generated unrecognized shape")
+            // 3. Fallback: Image Generation Pipeline
+            print("Shape '\(detectedIntent)' not hardcoded. Deferring to ImageCreator...")
+            do {
+                // Initialize the Image Playground API
+                let creator = ImageCreator()
+                
+                // Prompt Engineering for Vision: We want high contrast, solid lines, no shading.
+                let visionOptimizedPrompt = "A minimalist, single continuous black solid line drawing of a \(detectedIntent), pure white background, no shading, flat 2d."
+                
+                // Assuming ImageCreator has an async method that returns a UIImage
+                let generatedImage = try await creator.generateImage(prompt: visionOptimizedPrompt)
+                
+                await MainActor.run {
+                    // Feed the generated image directly into your existing Vision pipeline
+                    self.processImageWithVision(image: generatedImage)
+                    self.isGenerating = false
+                    self.textInput = ""
+                }
+                
+                // We return early here because `processImageWithVision` handles 
+                // generating the FFT and updating the UI automatically.
+                return 
+                
+            } catch {
+                print("ImageCreator pipeline failed: \(error.localizedDescription)")
+            }
         }
         
+        // 4. Finalize UI for hardcoded shapes
         await MainActor.run {
             if !newStroke.isEmpty {
                 self.finishedStrokes = [newStroke] 
