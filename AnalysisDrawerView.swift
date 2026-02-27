@@ -262,9 +262,32 @@ struct AnalysisDrawerView: View {
                         
                         Button(action: {
                             withAnimation {
+                                isCompressionMode = true
+                                showCompressionWalkthrough = true
+                                activeDrawerTab = 1
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "arrow.down.right.and.arrow.up.left")
+                                    .font(.title2)
+                                    .foregroundColor(.green)
+                                VStack(alignment: .leading) {
+                                    Text("How Compression Works").font(.subheadline).bold().foregroundColor(.primary)
+                                    Text("Understand JPEG & MP3 data reduction").font(.caption).foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right").foregroundColor(.gray)
+                            }
+                            .padding()
+                            .background(Color(UIColor.secondarySystemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+
+                        Button(action: {
+                            withAnimation {
                                 isMorphMode = true
                                 showMorphWalkthrough = true
-                                activeDrawerTab = 1 // Jump back to Analyze to see the tools
+                                activeDrawerTab = 1
                             }
                         }) {
                             HStack {
