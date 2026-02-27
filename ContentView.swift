@@ -526,13 +526,22 @@ struct FourierSketchpadView: View {
                 
                 var allExtractedStrokes: [[CGPoint]] = []
 
+                // Get the actual preserved dimensions of the image
+                let imageWidth = Double(cgImage.width)
+                let imageHeight = Double(cgImage.height)
+
                 for i in 0..<observation.contourCount {
                     guard let contour = try? observation.contour(at: i) else { continue }
                     
                     var extractedPoints: [CGPoint] = []
                     for point in contour.normalizedPoints {
                         let flippedY = 1.0 - Double(point.y)
-                        extractedPoints.append(CGPoint(x: Double(point.x) * 1000.0, y: flippedY * 1000.0))
+                        
+                        // Scale by actual image dimensions to preserve perfect aspect ratio
+                        extractedPoints.append(CGPoint(
+                            x: Double(point.x) * imageWidth, 
+                            y: flippedY * imageHeight
+                        ))
                     }
                     
                     if extractedPoints.count > 1 {
