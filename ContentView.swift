@@ -375,7 +375,7 @@ struct FourierSketchpadView: View {
             let response = try await session.respond(to: extractionPrompt)
             
             // Grab the actual string from the Response object (.text or .value)
-            let responseText = response.text 
+            let responseText = response.content
             detectedIntent = responseText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             print("LLM extracted intent: \(detectedIntent)")
         } catch {
@@ -430,19 +430,22 @@ struct FourierSketchpadView: View {
             print("Shape '\(detectedIntent)' not hardcoded. Deferring to ImageCreator...")
             do {
                 // Initialize the Image Playground API
-                let creator = ImageCreator()
+                let creator = try await ImageCreator()
                 
                 // Prompt Engineering for Vision: We want high contrast, solid lines, no shading.
                 let visionOptimizedPrompt = "A minimalist, single continuous black solid line drawing of a \(detectedIntent), pure white background, no shading, flat 2d."
                 
                 // Assuming ImageCreator has an async method that returns a UIImage
-                let generatedImage = try await creator.generateImage(prompt: visionOptimizedPrompt)
+                let generatedImages = creator.images(for: [.text(visionOptimizedPrompt)], style: .sketch, limit: 1)
                 
-                await MainActor.run {
-                    // Feed the generated image directly into your existing Vision pipeline
-                    self.processImageWithVision(image: generatedImage)
-                    self.isGenerating = false
-                    self.textInput = ""
+                for try await generatedImage in generatedImages {
+                    await MainActor.run {
+                        // Feed the generated image directly into your existing Vision pipeline
+                        self.processImageWithVision(image: UIImage(cgImage: generatedImage.cgImage))
+                        self.isGenerating = false
+                        self.textInput = ""
+                    }
+                    break
                 }
                 
                 // We return early here because `processImageWithVision` handles 
