@@ -47,6 +47,10 @@ struct FourierSketchpadView: View {
 
     // Canvas drawing center
     @State private var drawingCenter: CGPoint = CGPoint(x: 150, y: 150)
+
+    // Walkthrough State
+    @AppStorage("hasSeenWalkthrough") private var hasSeenWalkthrough: Bool = false
+    @State private var showWalkthroughSheet = false
     
     var drawingScale: CGFloat {
         guard baseCanvasSize.width > 0, canvasSize.width > 0 else { return 1.0 }
@@ -60,10 +64,17 @@ struct FourierSketchpadView: View {
             topNavigation
             floatingBottomControls
         }
-        .alert("How it Works", isPresented: $showInfo) {
-            Button("Got it!", role: .cancel) { }
-        } message: {
-            Text("Draw any shape on the left. The app breaks your drawing down into a chain of spinning circles, which work together to redraw your shape on the right.")
+        // 1. Add the Walkthrough Sheet
+        .sheet(isPresented: $showWalkthroughSheet) {
+            WalkthroughView(isPresented: $showWalkthroughSheet)
+                .interactiveDismissDisabled() // Forces them to swipe through or hit 'Get Started'
+        }
+        // 2. Trigger on first launch
+        .onAppear {
+            if !hasSeenWalkthrough {
+                showWalkthroughSheet = true
+                hasSeenWalkthrough = true
+            }
         }
         .onChange(of: minFreqRatio) { _ in applyFilter() }
         .onChange(of: maxFreqRatio) { _ in applyFilter() }
@@ -187,7 +198,7 @@ struct FourierSketchpadView: View {
     
     private var topNavigation: some View {
         HStack {
-            Button(action: { showInfo = true }) {
+            Button(action: { showWalkthroughSheet = true }) {
                 Image(systemName: "info.circle.fill")
                     .font(.system(size: 28))
                     .foregroundColor(.blue)
