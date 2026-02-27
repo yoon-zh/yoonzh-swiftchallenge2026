@@ -77,6 +77,7 @@ struct FourierSketchpadView: View {
             }
             .padding(.top, 40)
             .padding()
+            .padding(.leading, 70) 
             
             // THE SLIDE-OUT DRAWER
             if showDrawer {
