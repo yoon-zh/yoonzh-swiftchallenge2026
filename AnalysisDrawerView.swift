@@ -42,13 +42,13 @@ struct AnalysisDrawerView: View {
 
             // Tab Switcher
             Picker("Mode", selection: $activeDrawerTab) {
-                Text("Analyze").tag(0)
-                Text("Learn").tag(1)
+                Text("Learn").tag(0)
+                Text("Analyze").tag(1)
             }
             .pickerStyle(.segmented)
             .padding(.bottom, 8)
 
-            if activeDrawerTab == 0 {
+            if activeDrawerTab == 1 {
                 // --- ANALYZE TAB ---
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 24) {
