@@ -4,23 +4,30 @@ import Charts
 
 struct AnalysisDrawerView: View {
     let epicycles: [Epicycle]
+    let activeEpicyclesCount: Int
     
     // Bindings
     @Binding var showDrawer: Bool
     @Binding var minFreqRatio: Double
     @Binding var maxFreqRatio: Double
     
+    // Educational Bindings
+    @Binding var activeDrawerTab: Int
+    @Binding var isCompressionMode: Bool
+    @Binding var compressionDataLimit: Double
+    @Binding var showCompressionWalkthrough: Bool
+    
     // Alert States
     @State private var showFilterInfo = false
     @State private var showMagInfo = false
     @State private var showPhaseInfo = false
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             
-            // Header with explicit Close Button
+            // Header
             HStack {
-                Text("Analysis")
+                Text(activeDrawerTab == 0 ? "Analysis" : "Learn")
                     .font(.title2.bold())
                 Spacer()
                 Button(action: {
@@ -31,15 +38,52 @@ struct AnalysisDrawerView: View {
                         .font(.title2)
                 }
             }
+            .padding(.bottom, 4)
+
+            // Tab Switcher
+            Picker("Mode", selection: $activeDrawerTab) {
+                Text("Analyze").tag(0)
+                Text("Learn").tag(1)
+            }
+            .pickerStyle(.segmented)
             .padding(.bottom, 8)
-            
-            if epicycles.isEmpty {
-                Text("Awaiting data...")
-                    .foregroundColor(.secondary)
-                Spacer()
-            } else {
+
+            if activeDrawerTab == 0 {
+                // --- ANALYZE TAB ---
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 24) {
+                        
+                        // NEW: COMPRESSION SIMULATOR UI
+                        if isCompressionMode {
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Text("Compression Simulator").font(.headline)
+                                    Spacer()
+                                    Button("Exit") {
+                                        withAnimation { isCompressionMode = false }
+                                    }
+                                    .font(.caption).foregroundColor(.red)
+                                }
+                                
+                                Text("Data Limit: \(Int(compressionDataLimit * 100))%")
+                                    .font(.caption2).fontWeight(.bold)
+                                
+                                Slider(value: $compressionDataLimit, in: 0.01...1.0)
+                                    .tint(.green)
+                                
+                                HStack {
+                                    Text("Raw Points: 512").foregroundColor(.secondary)
+                                    Spacer()
+                                    Text("Epicycles Needed: \(activeEpicyclesCount)").bold()
+                                }
+                                .font(.caption)
+                            }
+                            .padding()
+                            .background(Color.green.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            
+                            Divider()
+                        }
                         
                         // 1. FREQUENCY FILTER (Band-Pass)
                         VStack(alignment: .leading, spacing: 8) {
@@ -150,6 +194,38 @@ struct AnalysisDrawerView: View {
                             Button("OK", role: .cancel) { }
                         } message: {
                             Text("This shows the starting angle of each circle. Every circle has a different starting angle to match the hand drawing.")
+                        }
+                    }
+                }
+            } else {
+                // --- LEARN TAB ---
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Educational Modules")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        
+                        Button(action: {
+                            withAnimation {
+                                isCompressionMode = true
+                                showCompressionWalkthrough = true
+                                activeDrawerTab = 0 // Switch back to Analyze to see the slider
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "arrow.down.right.and.arrow.up.left")
+                                    .font(.title2)
+                                    .foregroundColor(.green)
+                                VStack(alignment: .leading) {
+                                    Text("How Compression Works").font(.subheadline).bold().foregroundColor(.primary)
+                                    Text("Understand JPEG & MP3 data reduction").font(.caption).foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right").foregroundColor(.gray)
+                            }
+                            .padding()
+                            .background(Color(UIColor.secondarySystemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                     }
                 }

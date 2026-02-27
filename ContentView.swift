@@ -51,6 +51,12 @@ struct FourierSketchpadView: View {
     // Walkthrough State
     @AppStorage("hasSeenWalkthrough") private var hasSeenWalkthrough: Bool = false
     @State private var showWalkthroughSheet = false
+
+    // MARK: - Educational State
+    @State private var activeDrawerTab: Int = 0 // 0: Analyze, 1: Learn
+    @State private var isCompressionMode: Bool = false
+    @State private var compressionDataLimit: Double = 1.0 // 1.0 = 100%, 0.01 = 1%
+    @State private var showCompressionWalkthrough: Bool = false
     
     var drawingScale: CGFloat {
         guard baseCanvasSize.width > 0, canvasSize.width > 0 else { return 1.0 }
@@ -69,6 +75,10 @@ struct FourierSketchpadView: View {
             WalkthroughView(isPresented: $showWalkthroughSheet)
                 .interactiveDismissDisabled() // Forces them to swipe through or hit 'Get Started'
         }
+        .sheet(isPresented: $showCompressionWalkthrough) {
+            CompressionWalkthroughView(isPresented: $showCompressionWalkthrough)
+                .interactiveDismissDisabled()
+        }
         // 2. Trigger on first launch
         .onAppear {
             if !hasSeenWalkthrough {
@@ -78,6 +88,8 @@ struct FourierSketchpadView: View {
         }
         .onChange(of: minFreqRatio) { _ in applyFilter() }
         .onChange(of: maxFreqRatio) { _ in applyFilter() }
+        .onChange(of: compressionDataLimit) { _ in applyFilter() }
+        .onChange(of: isCompressionMode) { _ in applyFilter() }
     }
     
     // MARK: - UI COMPONENTS
@@ -97,9 +109,11 @@ struct FourierSketchpadView: View {
             if showDrawer {
                 AnalysisDrawerView(
                     epicycles: computedEpicycles,
+                    activeEpicyclesCount: activeEpicycles.count,
                     showDrawer: $showDrawer,
                     minFreqRatio: $minFreqRatio,
                     maxFreqRatio: $maxFreqRatio
+                    activeDrawerTab: $activeDrawerTab,
                 )
                 .frame(width: 350)
                 .transition(.move(edge: .trailing))
@@ -198,7 +212,13 @@ struct FourierSketchpadView: View {
     
     private var topNavigation: some View {
         HStack {
-            Button(action: { showWalkthroughSheet = true }) {
+            Button(action: { 
+                if isCompressionMode {
+                    showCompressionWalkthrough = true
+                } else {
+                    showWalkthroughSheet = true 
+                }
+            }) {
                 Image(systemName: "info.circle.fill")
                     .font(.system(size: 28))
                     .foregroundColor(.blue)
@@ -365,18 +385,24 @@ struct FourierSketchpadView: View {
         }
         
         let highestFreq = computedEpicycles.map { abs($0.frequency) }.max() ?? 1
-        
         let safeMin = min(minFreqRatio, maxFreqRatio)
         let safeMax = max(minFreqRatio, maxFreqRatio)
-        
         let minCutoff = Int(Double(highestFreq) * safeMin)
         let maxCutoff = Int(Double(highestFreq) * safeMax)
         
-        activeEpicycles = computedEpicycles.filter {
+        // 1. Standard Frequency Pass
+        var filtered = computedEpicycles.filter {
             let f = abs($0.frequency)
             return f >= minCutoff && f <= maxCutoff
         }
         
+        // 2. NEW: Amplitude Compression Pass
+        if isCompressionMode {
+            let limit = max(1, Int(Double(filtered.count) * compressionDataLimit))
+            filtered = Array(filtered.prefix(limit))
+        }
+        
+        activeEpicycles = filtered
         activeTrace = FourierCalculator.reconstructPath(from: activeEpicycles, sampleCount: 512)
     }
     

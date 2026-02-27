@@ -102,3 +102,38 @@ struct WalkthroughPage: View {
         }
     }
 }
+
+@available(iOS 26.0, *)
+struct CompressionWalkthroughView: View {
+    @Binding var isPresented: Bool
+    
+    var body: some View {
+        TabView {
+            WalkthroughPage(
+                icon: "photo.badge.arrow.down.fill",
+                iconColor: .green,
+                title: "The Magic of Compression",
+                description: "Ever wonder how huge images and audio tracks fit on your phone? Formats like JPEG and MP3 use the Fourier Transform to shrink file sizes by throwing away data you won't even notice is missing."
+            )
+            
+            WalkthroughPage(
+                icon: "ear",
+                iconColor: .blue,
+                title: "Dropping the Quiet Parts",
+                description: "Just like an MP3 deletes the 'quietest' frequencies that your ears can't hear over the loud ones, our simulator finds the smallest, least important epicycles and removes them."
+            )
+            
+            WalkthroughPage(
+                icon: "slider.horizontal.3",
+                iconColor: .purple,
+                title: "Try It Yourself",
+                description: "Use the 'Data Limit' slider in the drawer. Watch how far you can drop the percentage before the drawing actually starts to look bad. You'll be surprised how few epicycles you actually need!",
+                showDismiss: true,
+                action: { isPresented = false }
+            )
+        }
+        .tabViewStyle(.page(indexDisplayMode: .always))
+        .indexViewStyle(.page(backgroundDisplayMode: .always))
+        .background(Color(UIColor.systemBackground))
+    }
+}
