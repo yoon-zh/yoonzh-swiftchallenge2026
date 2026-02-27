@@ -128,17 +128,23 @@ struct AnalysisDrawerView: View {
                                     Image(systemName: "questionmark.circle").foregroundColor(.blue)
                                 }
                             }
-                            Text("Frequency vs. Start Angle").font(.caption).foregroundColor(.secondary)
+                            Text("Frequency vs. Start Angle (Degrees)").font(.caption).foregroundColor(.secondary)
                             
                             Chart(epicycles.prefix(50)) { epi in
                                 PointMark(
                                     x: .value("Frequency", epi.frequency),
-                                    y: .value("Phase", epi.phase)
+                                    y: .value("Phase", epi.phase * 180.0 / .pi) // Convert Rads to Degs
                                 )
                                 .foregroundStyle(Color.purple)
                             }
                             .frame(height: 150)
-                            .chartYScale(domain: -Double.pi...Double.pi)
+                            .chartYScale(domain: -180...180) // Set bounds to standard degrees
+                            .chartYAxis {
+                                AxisMarks(values: [-180, -90, 0, 90, 180]) { value in
+                                    AxisGridLine()
+                                    AxisValueLabel("\(value.as(Int.self) ?? 0)°")
+                                }
+                            }
                         }
                         .alert("Phase Spectrum", isPresented: $showPhaseInfo) {
                             Button("OK", role: .cancel) { }
