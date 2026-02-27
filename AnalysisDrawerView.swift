@@ -96,7 +96,7 @@ struct AnalysisDrawerView: View {
                         if isMorphMode {
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack {
-                                    Text("Shape Morphing").font(.headline)
+                                    Text("Cross-Synthesis").font(.headline)
                                     Spacer()
                                     Button("Exit") {
                                         withAnimation { isMorphMode = false }

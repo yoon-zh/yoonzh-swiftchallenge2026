@@ -22,7 +22,7 @@ struct FourierSketchpadView: View {
     @State private var showInfo = false
     
     // Drawer State
-    @State private var showDrawer = true
+    @State private var showDrawer = UIDevice.current.userInterfaceIdiom == .pad
     
     // Band-Pass Bounds
     @State private var minFreqRatio: Double = 0.0
@@ -387,9 +387,8 @@ struct FourierSketchpadView: View {
                 ))
                 .ignoresSafeArea()
             }
-            // Adjusted padding to shift the buttons slightly further to the left (12 instead of 24)
-            .padding(EdgeInsets(top: 24, leading: 12, bottom: 24, trailing: 24)) 
-            .opacity(showDrawer ? 0.0 : 1.0)
+            .padding(EdgeInsets(top: 24, leading: 12, bottom: 24, trailing: 24))
+            .opacity((showDrawer && UIDevice.current.userInterfaceIdiom != .pad) ? 0.0 : 1.0)
             .animation(.easeInOut, value: showDrawer)
         }
     }
@@ -587,7 +586,14 @@ struct FourierSketchpadView: View {
         let orientation = CGImagePropertyOrientation(resizedImage.imageOrientation)
         
         DispatchQueue.global(qos: .userInitiated).async {
-            defer { DispatchQueue.main.async { isProcessingImage = false } }
+            defer { DispatchQueue.main.async {
+                    // FIX: Use baseCanvasSize to prevent double-scaling
+                    let fittedStrokes = self.normalizeGroup(strokes: allExtractedStrokes, toFit: self.baseCanvasSize)
+                    if !fittedStrokes.isEmpty {
+                        self.finishedStrokes = fittedStrokes
+                        self.processSignal()
+                    }
+                }
             
             do {
                 let subjectRequest = VNGenerateForegroundInstanceMaskRequest()
