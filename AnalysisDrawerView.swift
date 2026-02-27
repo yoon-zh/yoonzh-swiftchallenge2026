@@ -209,7 +209,7 @@ struct AnalysisDrawerView: View {
                             withAnimation {
                                 isCompressionMode = true
                                 showCompressionWalkthrough = true
-                                activeDrawerTab = 0 // Switch back to Analyze to see the slider
+                                activeDrawerTab = 1 // Switch back to Analyze to see the slider
                             }
                         }) {
                             HStack {
