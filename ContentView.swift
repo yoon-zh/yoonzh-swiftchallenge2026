@@ -349,7 +349,7 @@ struct FourierSketchpadView: View {
                         // The Floating Text Input Bar
                         if showTextInput {
                             HStack {
-                                TextField("Type a shape (e.g., 'heart', 'cube')", text: $textInput)
+                                TextField("Type a shape or object", text: $textInput)
                                     .textFieldStyle(.plain)
                                     .focused($isInputFocused)
                                     .padding(.vertical, 8)
