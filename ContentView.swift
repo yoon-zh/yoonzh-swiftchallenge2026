@@ -21,6 +21,9 @@ struct FourierSketchpadView: View {
     
     @State private var showInfo = false
     
+    @State private var showErrorAlert = false
+    @State private var error: Error? = nil
+    
     // Drawer State
     @State private var showDrawer = UIDevice.current.userInterfaceIdiom == .pad
     
@@ -102,6 +105,15 @@ struct FourierSketchpadView: View {
         .onChange(of: compressionDataLimit) { _ in applyFilter() }
         .onChange(of: isCompressionMode) { _ in applyFilter() }
         .onChange(of: morphProgress) { _ in applyMorph() }
+        .alert("Error", isPresented: $showErrorAlert) {
+            // A default "OK" button will be added automatically if no buttons are specified
+        } message: {
+            if let error {
+                Text("\(error.localizedDescription)")
+            } else {
+                Text("Unknown error.")
+            }
+        }
     }
     
     // MARK: - UI COMPONENTS
@@ -441,11 +453,6 @@ struct FourierSketchpadView: View {
         activeTrace = FourierCalculator.reconstructPath(from: activeEpicycles, sampleCount: 512)
     }
     
-    @Generable
-    struct Output {
-        // my output
-    }
-    
     // MARK: - Foundation Model Integration
     func generateShapeFromText(query: String) async {
         isGenerating = true
@@ -465,6 +472,8 @@ struct FourierSketchpadView: View {
             print("LLM extracted intent: \(detectedIntent)")
         } catch {
             print("LLM response error: \(error.localizedDescription). Falling back to raw query.")
+            self.error = error
+            self.showErrorAlert = true
         }
         
         var newStroke: [CGPoint] = []
@@ -539,6 +548,8 @@ struct FourierSketchpadView: View {
                 
             } catch {
                 print("ImageCreator pipeline failed: \(error.localizedDescription)")
+                self.showErrorAlert = true
+                self.error = error
             }
         }
         
@@ -644,6 +655,8 @@ struct FourierSketchpadView: View {
                 }   
             } catch {
                 print("Vision pipeline failed: \(error.localizedDescription)")
+                self.showErrorAlert = true
+                self.error = error
             }
         }
     }
