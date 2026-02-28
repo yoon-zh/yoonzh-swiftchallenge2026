@@ -661,12 +661,10 @@ struct FourierSketchpadView: View {
                 }   
             } catch {
                 print("Vision pipeline failed: \(error.localizedDescription)")
-                DispatchQueue.main.async {
-                    self.showErrorAlert = true
-                    self.error = error
-                    self.isGenerating = false
-                    self.textInput = ""
-                }
+                self.showErrorAlert = true
+                self.error = error
+                self.isGenerating = false
+                self.textInput = ""
             }
         }
     }
