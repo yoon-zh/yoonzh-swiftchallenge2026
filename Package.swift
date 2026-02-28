@@ -8,20 +8,20 @@ import PackageDescription
 import AppleProductTypes
 
 let package = Package(
-    name: "Yoon",
+    name: "Fun-rierPad",
     platforms: [
         .iOS("16.0")
     ],
     products: [
         .iOSApplication(
-            name: "Yoon",
+            name: "Fun-rierPad",
             targets: ["AppModule"],
-            bundleIdentifier: "com.yoonzh.Yoon",
+            bundleIdentifier: "com.yoonzh.FunrierPad",
             teamIdentifier: "CW4W3B4RPP",
             displayVersion: "1.0",
             bundleVersion: "1",
-            appIcon: .placeholder(icon: .gift),
-            accentColor: .presetColor(.green),
+            appIcon: .asset("AppIcon"),
+            accentColor: .presetColor(.orange),
             supportedDeviceFamilies: [
                 .pad,
                 .phone
