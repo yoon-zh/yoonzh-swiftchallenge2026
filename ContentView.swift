@@ -312,7 +312,7 @@ struct FourierSketchpadView: View {
                         Task {
                             if let data = try? await newItem?.loadTransferable(type: Data.self),
                                let uiImage = UIImage(data: data) {
-                                try? await processImageWithVision(image: uiImage)
+                                processImageWithVision(image: uiImage)
                             }
                         }
                     }
@@ -392,7 +392,7 @@ struct FourierSketchpadView: View {
                     set: { newImage in
                         Task {
                             if let newImage = newImage {
-                                try? await processImageWithVision(image: newImage)
+                                processImageWithVision(image: newImage)
                             }
                         }
                     }
@@ -474,6 +474,9 @@ struct FourierSketchpadView: View {
             print("LLM response error: \(error.localizedDescription). Falling back to raw query.")
             self.error = error
             self.showErrorAlert = true
+            self.isGenerating = false
+            self.textInput = ""
+            return
         }
         
         var newStroke: [CGPoint] = []
@@ -550,6 +553,9 @@ struct FourierSketchpadView: View {
                 print("ImageCreator pipeline failed: \(error.localizedDescription)")
                 self.showErrorAlert = true
                 self.error = error
+                self.isGenerating = false
+                self.textInput = ""
+                return
             }
         }
         
@@ -655,8 +661,12 @@ struct FourierSketchpadView: View {
                 }   
             } catch {
                 print("Vision pipeline failed: \(error.localizedDescription)")
-                self.showErrorAlert = true
-                self.error = error
+                DispatchQueue.main.async {
+                    self.showErrorAlert = true
+                    self.error = error
+                    self.isGenerating = false
+                    self.textInput = ""
+                }
             }
         }
     }
