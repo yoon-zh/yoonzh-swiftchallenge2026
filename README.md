@@ -11,3 +11,16 @@ I was unhappy with my Signals and Systems course at my university since we never
 By using a canvas over mathematical expressions, users can get an intuitive understanding of Fourier Transform and its applications.
 
 ![img3](assets/app-image3.jpeg)
+
+
+## Swift Functions Used
+
+- Accelerate (vDSP): For 2D Fast Fourier Transform (FFT) calculations. It is incredibly fast and optimized, which allows for a responsive user experience updating the UI immediately.
+
+- Vision Framework: To process images, both from camera-album and ImageCreator's AI-generated images. By using foreground instance masking and contour detection, the app can extract normalized vector points to represent the image into an array, then transform it with Accelerate as if the user drew it.
+
+- FoundationModels & ImageCreator: One of the most recent features in Swift, I used them together to power the "Magic Wand" feature. The local, offline language model extracts the core intent from the user's prompt, then sends a request to ImageCreator to generate the shape, which then connects directly with the Vision pipeline.
+
+- Swift Charts: In the "Analysis" drawer, it provides a clean, interactive visual representations of the magnitude and phase spectrums, so users can see the raw frequency data behind their shapes.
+
+- SwiftUI Canvas: It handles the 60 fps rendering required to smoothly animate the chains of spinning epicycles and trace paths.
