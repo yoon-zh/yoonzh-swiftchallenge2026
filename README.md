@@ -1,5 +1,8 @@
 ## FunrierPad
 
+> [!NOTE]
+> Full list of app features in [features.md](features.md)
+
 ![gif1](assets/gifs/synthesis.gif)
 
 Advanced mathematics, specifically signal processing and the Fourier Transform, is traditionally taught in a highly theoretical, equation-heavy manner that alienates visual learners. People interact with Fourier Transforms every day through JPEG images and MP3 audio, but the underlying concept might feel unintuitive as it involves some calculus.
