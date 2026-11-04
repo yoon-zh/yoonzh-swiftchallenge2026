@@ -4,6 +4,8 @@ FunrierPad (Fourier Sketchpad) is an educational iOS / iPadOS application built 
 
 Rather than approaching the Fourier Transform as static calculus equations or 1D sound wave graphs, FunrierPad represents any 2D closed or multi-stroke drawing as a complex-valued periodic signal $z(t) \in \mathbb{C}$. The app decomposes the signal into rotating complex phasors (epicycles) using Fast Fourier Transform (FFT), visualizes their constructive and destructive interference in real time, and demonstrates practical applications such as frequency filtering, lossy data compression, and spectral cross-synthesis.
 
+![gif1](assets/gifs/synthesis.gif)
+
 
 ## Table of Contents
 
@@ -63,6 +65,8 @@ flowchart TD
 
 
 ## Feature 1: Multi-Modal Signal Acquisition & Geometry Ingestion
+
+![gif1](assets/gifs/compression.gif)
 
 FunrierPad provides three distinct ways for users to introduce 2D spatial signals into the engine:
 
@@ -199,6 +203,8 @@ $$\frac{1}{2} e^{i \omega t} + \frac{1}{2} e^{-i \omega t} = \cos(\omega t)$$
 
 ## Feature 4: Real-Time Epicycle Synthesis & Interactive Playback
 
+![gif1](assets/gifs/synthesis.gif)
+
 In [EpicycleView.swift](FunrierPad.swiftpm/EpicycleView.swift), the Fourier coefficients are brought to life through epicycles animation.
 
 ### Dynamic Kinematic Chain of Rotating Phasors
@@ -319,6 +325,8 @@ The magnitude spectrum enables users to inspect how energy is partitioned across
 
 ## Feature 7: Educational Simulation Modules
 
+![gif1](assets/gifs/learn-synthesis.gif)
+
 Accessible via the `Learn` tab in [AnalysisDrawerView.swift](FunrierPad.swiftpm/AnalysisDrawerView.swift), the app features two dedicated interactive labs demonstrating real-world applications of Fourier theory:
 
 ### Lossy Compression Simulator (Energy Compaction & Truncation)
@@ -339,6 +347,8 @@ Users discover that dropping the data limit to 10% ~ 15% produces an almost indi
 
 #### Signal Processing Connection: Rate-Distortion Theory & Lossy Compression Codecs (JPEG, MP3)
 
+![img2](assets/app-image1.jpeg)
+
 This module directly mirrors transform coding used in industry standards:
 - [JPEG](https://arxiv.org/pdf/1405.6147): Uses the 2D Discrete Cosine Transform (DCT) to transform $8 \times 8$ pixel blocks, discarding high-frequency coefficients with negligible perceptual weight
 - [MP3 / AAC](http://www.mp3-tech.org/programmer/docs/jacaba_main.pdf): Uses the Modified Discrete Cosine Transform ([MDCT](https://doi.org/10.1109/ICSC45622.2019.8938213)) and psychoacoustic models to drop low-energy spectral components masked by louder sounds
@@ -348,6 +358,8 @@ This demonstrates Energy Compaction: A well-chosen orthogonal basis allows repre
 
 
 ### Latent Space Cross-Synthesis (Frequency Domain Shape Morphing)
+
+![img3](assets/app-image3.jpeg)
 
 - Concept & UI: Users save two independent shapes (Shape A and Shape B) and use a "Morph Progress" slider from 0.0 to 1.0 to smoothly transform between them.
 - Implementation: Located in `FourierCalculator.interpolateEpicycles` in [FourierCalculator.swift](FunrierPad.swiftpm/FourierCalculator.swift):
@@ -369,6 +381,8 @@ This demonstrates Energy Compaction: A well-chosen orthogonal basis allows repre
 
 
 ## Feature 8: Interactive Guided Walkthroughs
+
+![img2](assets/app-image2.jpeg)
 
 Implemented in [WalkthroughView.swift](FunrierPad.swiftpm/WalkthroughView.swift):
 - First Launch: Shows the app features listed above, and how to use some signal processing tools like filtering frequency.
