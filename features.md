@@ -178,7 +178,7 @@ Each complex coefficient $Z[k] = \text{Re}[k] + i \cdot \text{Im}[k]$ is decompo
 
 $$\text{Amplitude: } A_k = \frac{\sqrt{\text{Re}[k]^2 + \text{Im}[k]^2}}{N}$$
 
-$$\text{Phase: } \phi_k = \operatorname{atan2} \left(\text{Im}[k], \text{Re}[k] \right)$$
+$$\text{Phase: } \phi_k = \text{atan2} \left(\text{Im}[k], \text{Re}[k] \right)$$
 
 ### Harmonic Sorting
 
@@ -369,7 +369,7 @@ This demonstrates Energy Compaction: A well-chosen orthogonal basis allows repre
   3. Linear Vector Interpolation:
      $$Re_{\text{interp}} = Re_A(1 - p) + Re_B(p), \quad Im_{\text{interp}} = Im_A(1 - p) + Im_B(p)$$
   4. Polar Reconversion:
-     $$A_{\text{interp}} = \sqrt{Re_{\text{interp}}^2 + Im_{\text{interp}}^2}, \quad \phi_{\text{interp}} = \operatorname{atan2}(Im_{\text{interp}}, Re_{\text{interp}})$$
+     $$A_{\text{interp}} = \sqrt{Re_{\text{interp}}^2 + Im_{\text{interp}}^2}, \quad \phi_{\text{interp}} = \text{atan2}(Im_{\text{interp}}, Re_{\text{interp}})$$
   5. Sorts the interpolated epicycles by amplitude and synthesizes the intermediate path.
 
 #### Signal Processing Connection: Cross-Synthesis, Phase Unwrapping, and Frequency Domain Interpolation
